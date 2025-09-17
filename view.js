@@ -905,7 +905,7 @@ function initTimePickers() {
     defaultTime: "6:00",
     dynamic: false,
     dropdown: true,
-    scrollbar: false,
+    scrollbar: true,
 
     change: function (time) {
       const previousStart = $(this).data("previousTime");
@@ -945,7 +945,7 @@ function initTimePickers() {
     defaultTime: "18",
     dynamic: false,
     dropdown: true,
-    scrollbar: false,
+    scrollbar: true,
 
     change: function (time) {
       const previousEnd = $(this).data("previousTime");
