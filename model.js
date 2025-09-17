@@ -606,8 +606,35 @@ function resetFilterState() {
   filterState.sortAsc = true;
 }
 
+function getCalendar() {
+  var calendarId = "5451e22c-4595-45c4-a4e6-b3fe3fecdf9a";
+
+  window.parent.Xrm.WebApi.retrieveRecord(
+    "calendar",
+    calendarId,
+    "?$expand=calendar_Calendar_Rules"
+  )
+    .then(function (result) {
+      var rules = result.calendar_Calendar_Rules;
+
+      rules.forEach(function (rule) {
+        alert(rule.starttime);
+
+        console.log("Start:", rule.starttime);
+
+        console.log("End:", rule.endtime);
+
+        console.log("Duration:", rule.duration);
+      });
+    })
+    .catch(function (error) {
+      console.error("Error retrieving calendar rules:", error.message);
+    });
+}
+
 // Expose model functions for controller
 window.Model = {
+  getCalendar,
   handleGetResorces,
   handleFilterFetch,
   handleGetTimeoffWithoutSet,

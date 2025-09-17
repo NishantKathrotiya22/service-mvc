@@ -36,6 +36,8 @@ async function init() {
       window.View.reRenderEvents();
     };
 
+    window.Model.getCalendar();
+
     // 6. Switch to initial tab
     await switchTab("init");
   } catch (error) {
