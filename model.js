@@ -215,6 +215,8 @@ function mapOverWorkingHoursData(response) {
   }));
 }
 
+function mapOverWorkingHour(response) {}
+
 function mapServiceType(data) {
   return data.entities.reduce((acc, item) => {
     acc[item.msdyn_incidenttypeid] = item.msdyn_name;
