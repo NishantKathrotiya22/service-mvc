@@ -479,9 +479,72 @@ function handleGetWorkingHours(getResources, mapResources) {
     });
 }
 
+// Function to fetch calendar data using ExpandCalendar
+async function fetchCalendarData() {
+  if (calenderIds.size === 0) {
+    console.warn("No calendar IDs available for fetching calendar data");
+    return [];
+  }
+
+  const { startDate, endDate } = getAdjustedDateRangeFromCalendar();
+  if (!startDate || !endDate) {
+    console.error("Unable to get date range for calendar data fetch");
+    return [];
+  }
+
+  try {
+    const calendarPromises = Array.from(calenderIds).map(async (calendarId) => {
+      // For bound functions, we need to use the correct query format
+      const query = `?$filter=calendarid eq ${calendarId}`;
+
+      // First get the calendar, then call the function
+      const calendar = await window.parent.Xrm.WebApi.retrieveRecord(
+        "calendar",
+        calendarId
+      );
+
+      // Now call the ExpandCalendar function using the correct bound function syntax
+      const functionQuery = `calendars(${calendarId})/Microsoft.Dynamics.CRM.ExpandCalendar(Start=@d1,End=@d2)?@d1=${startDate}&@d2=${endDate}`;
+
+      // Use a direct fetch request for bound functions
+      const response = await fetch(
+        `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.0/${functionQuery}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0",
+            Prefer: 'odata.include-annotations="*"',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    });
+
+    const results = await Promise.all(calendarPromises);
+    const combinedResults = results.flatMap((result) => result.value || []);
+
+    console.log("Combined calendar data results:", combinedResults);
+    return combinedResults;
+  } catch (error) {
+    console.error("Error fetching calendar data:", error);
+    throw error;
+  }
+}
+
 function handleEventFetch() {
   if (calenderIds.size !== 0 && currentTab === "leave") {
     console.error("Data Hai Call kar de");
+    // Fetch calendar data when calendar IDs are available and tab is "leave"
+    fetchCalendarData().catch((error) => {
+      console.error("Failed to fetch calendar data:", error);
+    });
   }
   return getAgreementBookingDatesBetween()
     .then((response) => {
@@ -625,6 +688,7 @@ window.Model = {
   handleGetTimeoffWithoutSet,
   handleGetWorkingHours,
   handleEventFetch,
+  fetchCalendarData,
   loadHolidayDates,
   bookableResourceCategoryHandler,
   mapServiceType: (data) => mapServiceType(data),
