@@ -30,14 +30,14 @@ async function init() {
 
     // 5. Set global references
     currentTab = "init";
+    await switchTab("init");
     window.refreshCalendarUI = window.View.refreshCalendarUI;
-    window.handleEventFetch = async () => {
-      await window.Model.handleEventFetch();
-      window.View.reRenderEvents();
-    };
+    // window.handleEventFetch = async () => {
+    //   await window.Model.handleEventFetch();
+    //   window.View.reRenderEvents();
+    // };
 
     // 6. Switch to initial tab
-    await switchTab("init");
   } catch (error) {
     console.error("Initialization error:", error);
   }

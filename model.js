@@ -41,6 +41,7 @@ let currentRequestToken = 0;
 
 let timeOffLookup = {};
 let workingHoursLookup = {};
+let calenderIds = new Set();
 
 const refLink = "..//WebResources/";
 
@@ -91,7 +92,7 @@ function getCareType() {
 function getBookableResources() {
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
     "bookableresource",
-    "?$select=name,resourcetype&$expand=UserId($select=entityimage_url),msdyn_bookableresource_msdyn_resourceterritory_Resource($select=msdyn_resourceterritoryid,msdyn_name,_msdyn_resource_value,_msdyn_territory_value,statecode)"
+    "?$select=name,resourcetype,_calendarid_value&$expand=UserId($select=entityimage_url),msdyn_bookableresource_msdyn_resourceterritory_Resource($select=msdyn_resourceterritoryid,msdyn_name,_msdyn_resource_value,_msdyn_territory_value,statecode)"
   );
 }
 
@@ -192,19 +193,28 @@ function mapOverLeaveData(response) {
 }
 
 function mapOverIntialData(response) {
-  return response.entities.map((r) => ({
-    id: r?.bookableresourceid,
-    title: r?.name,
-    extendedProps: {
-      imgUrl:
-        r?.UserId?.entityimage_url ?? `${refLink}sog_CareWorkerAvtar?preview=1`,
-      name: r.name,
-      resourceType: `${r?.resourcetype}`,
-      region: getActiveTerritoryValues(
-        r?.msdyn_bookableresource_msdyn_resourceterritory_Resource || []
-      ),
-    },
-  }));
+  calenderIds.clear();
+  return response.entities.map((r) => {
+    //Creating Array of ID To get Working Hours
+    if (r?._calendarid_value) {
+      calenderIds.add(r?._calendarid_value);
+    }
+
+    return {
+      id: r?.bookableresourceid,
+      title: r?.name,
+      extendedProps: {
+        imgUrl:
+          r?.UserId?.entityimage_url ??
+          `${refLink}sog_CareWorkerAvtar?preview=1`,
+        name: r.name,
+        resourceType: `${r?.resourcetype}`,
+        region: getActiveTerritoryValues(
+          r?.msdyn_bookableresource_msdyn_resourceterritory_Resource || []
+        ),
+      },
+    };
+  });
 }
 
 function mapOverWorkingHoursData(response) {
@@ -401,7 +411,6 @@ function handleGetResorces(getResources, mapResources) {
       resorcesState.resourceData = mappedResources;
 
       resourceData = mappedResources;
-
       return mappedResources;
     })
     .catch((error) => {
@@ -471,6 +480,9 @@ function handleGetWorkingHours(getResources, mapResources) {
 }
 
 function handleEventFetch() {
+  if (calenderIds.size !== 0 && currentTab === "leave") {
+    console.error("Data Hai Call kar de");
+  }
   return getAgreementBookingDatesBetween()
     .then((response) => {
       const statusMap = {
