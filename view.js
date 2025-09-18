@@ -148,6 +148,13 @@ function renderEventDetails(arg) {
   const tooltipHtml = renderTooltipContent(arg).replace(/\n/g, "");
   let eventClass = "ec-event-active";
 
+  if (arg?.event?.display === "background") {
+    console.log("Founded BG event");
+    return {
+      html: ``,
+    };
+  }
+
   if (currentTab === "leave") {
     const resourceId = arg?.event?.resourceIds?.[0] ?? arg?.event?.id;
     eventClass = window.Model.getEventClassName(start, end, resourceId);

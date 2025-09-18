@@ -644,8 +644,126 @@ async function fetchCalendarData() {
   return results;
 }
 
+// =====================
+// Helpers
+// =====================
+
+// Map agreement booking dates (existing CRM events)
+function mapBookingEvents(response) {
+  const statusMap = {
+    690970000: "Active",
+    690970001: "Processed",
+    690970002: "Canceled",
+  };
+
+  return response.entities.map((event) => {
+    const startDate = new Date(event.msdyn_bookingdate);
+    const durationMinutes =
+      event.msdyn_bookingsetup.msdyn_estimatedduration || 60;
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+
+    const addressParts = [
+      event?.msdyn_workorder?.msdyn_address1 || " ",
+      event?.msdyn_workorder?.msdyn_address2 || " ",
+      event?.msdyn_workorder?.msdyn_address3 || " ",
+      event?.msdyn_workorder?.msdyn_city || " ",
+      event?.msdyn_workorder?.msdyn_stateorprovince || " ",
+      event?.msdyn_workorder?.msdyn_postalcode || " ",
+      event?.msdyn_workorder?.msdyn_country || " ",
+    ]
+      .filter((part) => part)
+      .join(", ");
+
+    return {
+      resourceId: event?._msdyn_resource_value,
+      start: startDate,
+      end: endDate,
+      display: "auto",
+      id: event?.msdyn_agreementbookingdateid,
+      type: "Full",
+      slotEventOverlap: true,
+      editable: false,
+      durationEditable: false,
+      eventStartEditable: false,
+      extendedProps: {
+        bookingID: event?._msdyn_agreement_value,
+        employeeID: event?.msdyn_name,
+        employeeName: event?.msdyn_resource?.name ?? "N/A",
+        address: addressParts,
+        suburb: event?.msdyn_workorder?.msdyn_city ?? "N/A",
+        bookingStatus: statusMap[event?.msdyn_status] ?? "Unknown",
+        region: event?.msdyn_workorder?._msdyn_serviceterritory_value,
+        agreementBookingSetupId:
+          event?.msdyn_bookingsetup?.msdyn_agreementbookingsetupid,
+        service_id: event?.msdyn_bookingsetup?._ang_incidenttype_value,
+        workOrderID: event?.msdyn_workorder?.msdyn_workorderid,
+        workOrderStatus: event?.msdyn_workorder?.msdyn_systemstatus,
+        servicesString:
+          event?.msdyn_bookingsetup?.sog_selectedincidentservices ?? "",
+        placeholder:
+          event?.msdyn_bookingsetup?.sog_placeholdertypecode ?? false,
+      },
+    };
+  });
+}
+
+// Map availability calendar items into background events
+function mapCalendarEvents(calendarData) {
+  return calendarData.flatMap((item) => {
+    const events = [];
+
+    // Base availability block
+    events.push({
+      resourceId: item?.SourceId,
+      start: new Date(item?.Start),
+      end: new Date(item?.End),
+      type: "full",
+      display: "background",
+    });
+
+    // Fixed work hours (could later come from workingHoursLookup)
+    const workStart = new Date(item?.Start);
+    workStart.setHours(9, 0, 0, 0);
+
+    const workEnd = new Date(item?.Start);
+    workEnd.setHours(14, 0, 0, 0);
+
+    const dayStart = new Date(item?.Start);
+    dayStart.setHours(0, 0, 0, 0);
+
+    const dayEnd = new Date(item?.End);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    // Pre-work gap
+    if (dayStart < workStart) {
+      events.push({
+        resourceId: item?.SourceId,
+        start: dayStart,
+        end: workStart,
+        type: "gap",
+        display: "background",
+      });
+    }
+
+    // Post-work gap
+    if (workEnd < dayEnd) {
+      events.push({
+        resourceId: item?.SourceId,
+        start: workEnd,
+        end: dayEnd,
+        type: "gap",
+        display: "background",
+      });
+    }
+
+    return events;
+  });
+}
+
+// =====================
+// Main Event Fetcher
+// =====================
 async function handleEventFetch() {
-  // Prevent multiple simultaneous calls
   if (isEventFetching) {
     console.log("Event fetch already in progress, skipping...");
     return Promise.resolve();
@@ -655,7 +773,9 @@ async function handleEventFetch() {
   console.log("Starting event fetch...");
 
   try {
-    // For leave tab, ensure calendar data is fetched first
+    let allEvents = [];
+
+    // 1. If leave tab → fetch and map calendar availability
     if (
       currentTab === "leave" &&
       calenderIds.size !== 0 &&
@@ -665,87 +785,33 @@ async function handleEventFetch() {
       try {
         const calendarData = await fetchCalendarData();
         calendarDataFetched = true;
+        const calendarEvents = mapCalendarEvents(calendarData);
+        allEvents.push(...calendarEvents);
       } catch (error) {
         console.error("Failed to fetch calendar data:", error);
       }
     }
 
-    return getAgreementBookingDatesBetween()
-      .then((response) => {
-        const statusMap = {
-          690970000: "Active",
-          690970001: "Processed",
-          690970002: "Canceled",
-        };
-        const mappedEvents = response.entities.map((event) => {
-          const startDate = new Date(event.msdyn_bookingdate);
-          const durationMinutes =
-            event.msdyn_bookingsetup.msdyn_estimatedduration || 60;
-          const endDate = new Date(
-            startDate.getTime() + durationMinutes * 60 * 1000
-          );
-          const addressParts = [
-            event?.msdyn_workorder?.msdyn_address1 || " ",
-            event?.msdyn_workorder?.msdyn_address2 || " ",
-            event?.msdyn_workorder?.msdyn_address3 || " ",
-            event?.msdyn_workorder?.msdyn_city || " ",
-            event?.msdyn_workorder?.msdyn_stateorprovince || " ",
-            event?.msdyn_workorder?.msdyn_postalcode || " ",
-            event?.msdyn_workorder?.msdyn_country || " ",
-          ]
-            .filter((part) => part)
-            .join(", ");
+    // 2. Always fetch booking events
+    const bookingResponse = await getAgreementBookingDatesBetween();
+    const bookingEvents = mapBookingEvents(bookingResponse);
+    allEvents.push(...bookingEvents);
 
-          return {
-            resourceId: event?._msdyn_resource_value,
-            start: startDate,
-            end: endDate,
-            id: event?.msdyn_agreementbookingdateid,
-            type: "Full",
-            slotEventOverlap: true,
-            editable: false,
-            durationEditable: false,
-            eventStartEditable: false,
-            extendedProps: {
-              bookingID: event?._msdyn_agreement_value,
-              employeeID: event?.msdyn_name,
-              employeeName: event?.msdyn_resource?.name ?? "N/A",
-              address: addressParts,
-              suburb: event?.msdyn_workorder?.msdyn_city ?? "N/A",
-              bookingStatus: statusMap[event?.msdyn_status] ?? "Unknown",
-              region: event?.msdyn_workorder?._msdyn_serviceterritory_value,
-              agreementBookingSetupId:
-                event?.msdyn_bookingsetup?.msdyn_agreementbookingsetupid,
-              service_id: event?.msdyn_bookingsetup?._ang_incidenttype_value,
-              workOrderID: event?.msdyn_workorder?.msdyn_workorderid,
-              workOrderStatus: event?.msdyn_workorder?.msdyn_systemstatus,
-              servicesString:
-                event?.msdyn_bookingsetup?.sog_selectedincidentservices ?? "",
-              placeholder:
-                event?.msdyn_bookingsetup?.sog_placeholdertypecode ?? false,
-            },
-          };
-        });
-        eventStatus.isLoading = false;
-        eventStatus.eventData = mappedEvents;
-        eventData = mappedEvents;
-        console.log("Event fetch completed successfully");
-        return mappedEvents;
-      })
-      .catch((error) => {
-        console.error("Error fetching events:", error.message);
-        eventStatus.isLoading = false;
-        eventStatus.isError = true;
-        eventData = [];
-        throw error;
-      })
-      .finally(() => {
-        isEventFetching = false;
-      });
+    // 3. Save combined events
+    eventStatus.isLoading = false;
+    eventStatus.eventData = allEvents;
+    eventData = allEvents;
+
+    console.log("✅ Event fetch completed successfully");
+    return allEvents;
   } catch (error) {
-    console.error("Error in handleEventFetch:", error);
-    isEventFetching = false;
+    console.error("❌ Error in handleEventFetch:", error);
+    eventStatus.isLoading = false;
+    eventStatus.isError = true;
+    eventData = [];
     throw error;
+  } finally {
+    isEventFetching = false;
   }
 }
 
