@@ -32,56 +32,66 @@ async function init() {
     currentTab = "init";
     await switchTab("init");
     window.refreshCalendarUI = window.View.refreshCalendarUI;
+    // window.handleEventFetch = async () => {
+    //   await window.Model.handleEventFetch();
+    //   window.View.reRenderEvents();
+    // };
+
+    // 6. Switch to initial tab
   } catch (error) {
     console.error("Initialization error:", error);
   }
 }
 
+// Event Handlers
 async function switchTab(tab) {
   try {
     currentTab = tab;
     resetFilters();
+    window.Model.bookableResourceCategoryHandler();
     window.View.resetDynamicHeight();
 
-    // Cancel any in-progress fetches
-    window.Model.resetEventFetchFlags();
-
     if (tab === "init") {
-      // Fetch resources + events together
-      const [resources] = await Promise.all([
-        window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
-        window.Model.handleEventFetch(),
-      ]);
-
+      // Fetch resources and events for initial tab
+      await window.Model.handleGetResorces(
+        getBookableResources,
+        mapOverIntialData
+      );
       const filteredResources = window.Model.applyAllFilters();
       window.View.reRenderResources(filteredResources);
+
+      await window.Model.handleEventFetch();
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
     } else if (tab === "leave") {
-      // Fetch everything needed for leave tab together
-      const [resources, timeOffData, workingHoursData, _events] =
-        await Promise.all([
-          window.Model.handleGetResorces(
-            getBookableResources,
-            mapOverIntialData
-          ),
-          window.Model.handleGetTimeoffWithoutSet(
-            getTimeOffRequests,
-            mapOverLeaveData
-          ),
-          window.Model.handleGetWorkingHours(
-            getWorkingHours,
-            mapOverWorkingHoursData
-          ),
-          window.Model.handleEventFetch(),
-        ]);
+      // Fetch resources first
+      await window.Model.handleGetResorces(
+        getBookableResources,
+        mapOverIntialData
+      );
 
-      // Build lookups AFTER timeOff + workingHours finish
+      // Then fetch time off and working hours data
+      const [timeOffData, workingHoursData] = await Promise.all([
+        window.Model.handleGetTimeoffWithoutSet(
+          getTimeOffRequests,
+          mapOverLeaveData
+        ),
+        window.Model.handleGetWorkingHours(
+          getWorkingHours,
+          mapOverWorkingHoursData
+        ),
+      ]);
+
+      // Calculate lookup data
       window.Model.calculateLookupData(timeOffData);
       window.Model.calculateWorkingHoursLookup(workingHoursData);
 
+      // Apply filters and render resources
       const filteredResources = window.Model.applyAllFilters();
       window.View.reRenderResources(filteredResources);
+
+      // Fetch and render events
+      await window.Model.handleEventFetch();
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
     }
@@ -153,7 +163,6 @@ async function handleDateChange() {
 
 async function refreshData() {
   try {
-    window.Model.resetEventFetchFlags(); // Reset event fetch flags when refreshing
     await window.Model.bookableResourceCategoryHandler();
 
     if (currentTab === "init") {

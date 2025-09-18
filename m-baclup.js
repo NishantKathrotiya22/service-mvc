@@ -38,8 +38,6 @@ const eventStatus = {
 };
 
 let currentRequestToken = 0;
-let isEventFetching = false;
-let calendarDataFetched = false;
 
 let timeOffLookup = {};
 let workingHoursLookup = {};
@@ -639,114 +637,93 @@ async function fetchCalendarData() {
   }
 
   console.log(`Fetched ${results.length} total calendar results`);
-  console.log("Calendar data batch processing completed successfully");
   console.log(results);
   return results;
 }
 
 async function handleEventFetch() {
-  // Prevent multiple simultaneous calls
-  if (isEventFetching) {
-    console.log("Event fetch already in progress, skipping...");
-    return Promise.resolve();
-  }
-
-  isEventFetching = true;
-  console.log("Starting event fetch...");
-
-  try {
-    // For leave tab, ensure calendar data is fetched first
-    if (
-      currentTab === "leave" &&
-      calenderIds.size !== 0 &&
-      !calendarDataFetched
-    ) {
-      console.log("Fetching calendar data before processing events...");
-      try {
-        const calendarData = await fetchCalendarData();
-        calendarDataFetched = true;
-      } catch (error) {
-        console.error("Failed to fetch calendar data:", error);
-      }
+  if (calenderIds.size !== 0 && currentTab === "leave") {
+    console.log("Fetching calendar data before processing events...");
+    try {
+      // Fetch calendar data when calendar IDs are available and tab is "leave"
+      const calendarData = await fetchCalendarData();
+      console.log(
+        "Calendar data fetched successfully:",
+        calendarData.length,
+        "items"
+      );
+    } catch (error) {
+      console.error("Failed to fetch calendar data:", error);
+      // Continue with event fetching even if calendar data fails
     }
-
-    return getAgreementBookingDatesBetween()
-      .then((response) => {
-        const statusMap = {
-          690970000: "Active",
-          690970001: "Processed",
-          690970002: "Canceled",
-        };
-        const mappedEvents = response.entities.map((event) => {
-          const startDate = new Date(event.msdyn_bookingdate);
-          const durationMinutes =
-            event.msdyn_bookingsetup.msdyn_estimatedduration || 60;
-          const endDate = new Date(
-            startDate.getTime() + durationMinutes * 60 * 1000
-          );
-          const addressParts = [
-            event?.msdyn_workorder?.msdyn_address1 || " ",
-            event?.msdyn_workorder?.msdyn_address2 || " ",
-            event?.msdyn_workorder?.msdyn_address3 || " ",
-            event?.msdyn_workorder?.msdyn_city || " ",
-            event?.msdyn_workorder?.msdyn_stateorprovince || " ",
-            event?.msdyn_workorder?.msdyn_postalcode || " ",
-            event?.msdyn_workorder?.msdyn_country || " ",
-          ]
-            .filter((part) => part)
-            .join(", ");
-
-          return {
-            resourceId: event?._msdyn_resource_value,
-            start: startDate,
-            end: endDate,
-            id: event?.msdyn_agreementbookingdateid,
-            type: "Full",
-            slotEventOverlap: true,
-            editable: false,
-            durationEditable: false,
-            eventStartEditable: false,
-            extendedProps: {
-              bookingID: event?._msdyn_agreement_value,
-              employeeID: event?.msdyn_name,
-              employeeName: event?.msdyn_resource?.name ?? "N/A",
-              address: addressParts,
-              suburb: event?.msdyn_workorder?.msdyn_city ?? "N/A",
-              bookingStatus: statusMap[event?.msdyn_status] ?? "Unknown",
-              region: event?.msdyn_workorder?._msdyn_serviceterritory_value,
-              agreementBookingSetupId:
-                event?.msdyn_bookingsetup?.msdyn_agreementbookingsetupid,
-              service_id: event?.msdyn_bookingsetup?._ang_incidenttype_value,
-              workOrderID: event?.msdyn_workorder?.msdyn_workorderid,
-              workOrderStatus: event?.msdyn_workorder?.msdyn_systemstatus,
-              servicesString:
-                event?.msdyn_bookingsetup?.sog_selectedincidentservices ?? "",
-              placeholder:
-                event?.msdyn_bookingsetup?.sog_placeholdertypecode ?? false,
-            },
-          };
-        });
-        eventStatus.isLoading = false;
-        eventStatus.eventData = mappedEvents;
-        eventData = mappedEvents;
-        console.log("Event fetch completed successfully");
-        return mappedEvents;
-      })
-      .catch((error) => {
-        console.error("Error fetching events:", error.message);
-        eventStatus.isLoading = false;
-        eventStatus.isError = true;
-        eventData = [];
-        throw error;
-      })
-      .finally(() => {
-        isEventFetching = false;
-      });
-  } catch (error) {
-    console.error("Error in handleEventFetch:", error);
-    isEventFetching = false;
-    throw error;
   }
+  return getAgreementBookingDatesBetween()
+    .then((response) => {
+      const statusMap = {
+        690970000: "Active",
+        690970001: "Processed",
+        690970002: "Canceled",
+      };
+      const mappedEvents = response.entities.map((event) => {
+        const startDate = new Date(event.msdyn_bookingdate);
+        const durationMinutes =
+          event.msdyn_bookingsetup.msdyn_estimatedduration || 60;
+        const endDate = new Date(
+          startDate.getTime() + durationMinutes * 60 * 1000
+        );
+        const addressParts = [
+          event?.msdyn_workorder?.msdyn_address1 || " ",
+          event?.msdyn_workorder?.msdyn_address2 || " ",
+          event?.msdyn_workorder?.msdyn_address3 || " ",
+          event?.msdyn_workorder?.msdyn_city || " ",
+          event?.msdyn_workorder?.msdyn_stateorprovince || " ",
+          event?.msdyn_workorder?.msdyn_postalcode || " ",
+          event?.msdyn_workorder?.msdyn_country || " ",
+        ]
+          .filter((part) => part)
+          .join(", ");
+        return {
+          resourceId: event?._msdyn_resource_value,
+          start: startDate,
+          end: endDate,
+          id: event?.msdyn_agreementbookingdateid,
+          type: "Full",
+          slotEventOverlap: true,
+          editable: false,
+          durationEditable: false,
+          eventStartEditable: false,
+          extendedProps: {
+            bookingID: event?._msdyn_agreement_value,
+            employeeID: event?.msdyn_name,
+            employeeName: event?.msdyn_resource?.name ?? "N/A",
+            address: addressParts,
+            suburb: event?.msdyn_workorder?.msdyn_city ?? "N/A",
+            bookingStatus: statusMap[event?.msdyn_status] ?? "Unknown",
+            region: event?.msdyn_workorder?._msdyn_serviceterritory_value,
+            agreementBookingSetupId:
+              event?.msdyn_bookingsetup?.msdyn_agreementbookingsetupid,
+            service_id: event?.msdyn_bookingsetup?._ang_incidenttype_value,
+            workOrderID: event?.msdyn_workorder?.msdyn_workorderid,
+            workOrderStatus: event?.msdyn_workorder?.msdyn_systemstatus,
+            servicesString:
+              event?.msdyn_bookingsetup?.sog_selectedincidentservices ?? "",
+            placeholder:
+              event?.msdyn_bookingsetup?.sog_placeholdertypecode ?? false,
+          },
+        };
+      });
+      eventStatus.isLoading = false;
+      eventStatus.eventData = mappedEvents;
+      eventData = mappedEvents;
+      return mappedEvents;
+    })
+    .catch((error) => {
+      console.error("Error fetching events:", error.message);
+      eventStatus.isLoading = false;
+      eventStatus.isError = true;
+      eventData = [];
+      throw error;
+    });
 }
 
 function loadHolidayDates() {
@@ -815,11 +792,6 @@ function resetFilterState() {
   filterState.sortAsc = true;
 }
 
-function resetEventFetchFlags() {
-  isEventFetching = false;
-  calendarDataFetched = false;
-}
-
 // Expose model functions for controller
 window.Model = {
   handleGetResorces,
@@ -833,7 +805,6 @@ window.Model = {
   mapServiceType: (data) => mapServiceType(data),
   applyAllFilters,
   resetFilterState,
-  resetEventFetchFlags,
   getResources: () => resourceData,
   getEvents: () => eventData,
   getHolidayDates: () => holidayDates,
