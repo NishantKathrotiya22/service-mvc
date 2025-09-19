@@ -509,27 +509,56 @@ function createBatchRequestBody(batchRequests, boundary) {
   return body;
 }
 
-// Parse batch response
-function parseBatchResponse(responseText) {
+// Parse batch response and tag each part with its originating calendarId via Content-ID
+function parseBatchResponse(responseText, requestsMeta = []) {
   const results = [];
   const parts = responseText.split(
     /--changesetresponse_[a-f0-9-]+|--batchresponse_[a-f0-9-]+/i
   );
 
+  // Create a quick lookup: contentId (string) -> calendarId
+  const contentIdToCalendarId = requestsMeta.reduce((acc, m) => {
+    if (m && m.contentId != null && m.calendarId) {
+      acc[String(m.contentId)] = m.calendarId;
+    }
+    return acc;
+  }, {});
+
+  let runningContentId = 0; // fallback counter if Content-ID header is not present
+
   for (const part of parts) {
-    if (!part.includes("{")) continue;
+    if (!part || !part.includes("{")) continue;
 
     try {
+      // Try to read Content-ID from this part's headers
+      const m = part.match(/Content-ID:\s*(\d+)/i);
+      const contentId = m ? m[1] : String(++runningContentId);
+      const calendarId = contentIdToCalendarId[contentId];
+
       const jsonStart = part.indexOf("{");
       const jsonText = part.substring(jsonStart);
       const parsed = JSON.parse(jsonText);
 
-      results.push(parsed?.result || parsed); // CRM returns "value" array
+      const items = parsed?.result || parsed?.value || parsed || [];
+      const normalized = Array.isArray(items) ? items : [items];
+
+      // Append QueriedCalendarId to each item, if we can determine it
+      normalized.forEach((item) => {
+        try {
+          if (calendarId) {
+            item.QueriedCalendarId = calendarId;
+          }
+        } catch (_) {
+          // ignore non-object items
+        }
+      });
+
+      results.push(...normalized);
     } catch (err) {
       console.warn("Failed to parse batch part:", err);
     }
   }
-  return results.flat();
+  return results;
 }
 
 // Process a batch
@@ -548,6 +577,12 @@ async function processBatch(batch, startDate, endDate) {
       },
     };
   });
+
+  // Track mapping between Content-ID and calendarId
+  const requestsMeta = batch.map((calendarId, idx) => ({
+    contentId: idx + 1,
+    calendarId,
+  }));
 
   const body = createBatchRequestBody(requests, boundary);
 
@@ -570,7 +605,7 @@ async function processBatch(batch, startDate, endDate) {
   }
 
   const text = await response.text();
-  return parseBatchResponse(text);
+  return parseBatchResponse(text, requestsMeta);
 }
 
 // Fallback function for individual requests when batch fails
@@ -599,14 +634,24 @@ async function processBatchIndividually(batch, startDate, endDate) {
         return { result: [] };
       }
 
-      return await response.json();
+      const data = await response.json();
+      const items = data?.result || data?.value || [];
+      const normalized = Array.isArray(items) ? items : [items];
+      normalized.forEach((item) => {
+        try {
+          item.QueriedCalendarId = calendarId;
+        } catch (_) {}
+      });
+      return normalized;
     } catch (error) {
       console.warn(`Error fetching calendar ${calendarId}:`, error.message);
-      return { result: [] };
+      return [];
     }
   });
 
-  return await Promise.all(promises);
+  const chunks = await Promise.all(promises);
+  // Flatten
+  return chunks.flat();
 }
 
 // Fetch all calendar data in batches
