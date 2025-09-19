@@ -137,6 +137,12 @@ function formatEventTime(date) {
 }
 
 function renderEventDetails(arg) {
+  if (arg?.event?.display === "background") {
+    console.log("Founded BG event");
+    return {
+      html: ``,
+    };
+  }
   const start = new Date(arg.event.start);
   const end = new Date(arg.event.end);
   const diffMs = end - start;
@@ -147,13 +153,6 @@ function renderEventDetails(arg) {
   arg.event.extendedProps.duration = durationStr;
   const tooltipHtml = renderTooltipContent(arg).replace(/\n/g, "");
   let eventClass = "ec-event-active";
-
-  if (arg?.event?.display === "background") {
-    console.log("Founded BG event");
-    return {
-      html: ``,
-    };
-  }
 
   if (currentTab === "leave") {
     const resourceId = arg?.event?.resourceIds?.[0] ?? arg?.event?.id;

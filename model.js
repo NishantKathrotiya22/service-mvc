@@ -43,7 +43,7 @@ let calendarDataFetched = false;
 
 let timeOffLookup = {};
 let workingHoursLookup = {};
-let calenderIds = new Set();
+let calenderIds = {};
 
 const refLink = "..//WebResources/";
 
@@ -195,11 +195,11 @@ function mapOverLeaveData(response) {
 }
 
 function mapOverIntialData(response) {
-  calenderIds.clear();
+  calenderIds = {};
   return response.entities.map((r) => {
     //Creating Array of ID To get Working Hours
-    if (r?._calendarid_value) {
-      calenderIds.add(r?._calendarid_value);
+    if (r?._calendarid_value && r?.bookableresourceid) {
+      calenderIds[r?._calendarid_value] = r?.bookableresourceid;
     }
 
     return {
@@ -656,10 +656,10 @@ async function processBatchIndividually(batch, startDate, endDate) {
 
 // Fetch all calendar data in batches
 async function fetchCalendarData() {
-  if (calenderIds.size === 0) return [];
+  if (Object.keys(calenderIds).length === 0) return [];
 
   const { startDate, endDate } = getAdjustedDateRangeFromCalendar();
-  const ids = Array.from(calenderIds);
+  const ids = Object.keys(calenderIds);
   const batchSize = 40; // max supported
   const results = [];
 
@@ -756,33 +756,25 @@ function mapBookingEvents(response) {
 function mapCalendarEvents(calendarData) {
   return calendarData.flatMap((item) => {
     const events = [];
-
-    // Base availability block
-    events.push({
-      resourceId: item?.SourceId,
-      start: new Date(item?.Start),
-      end: new Date(item?.End),
-      type: "full",
-      display: "background",
-    });
+    if (item?.TimeCode !== "Available") {
+      return [];
+    }
 
     // Fixed work hours (could later come from workingHoursLookup)
     const workStart = new Date(item?.Start);
-    workStart.setHours(9, 0, 0, 0);
+    const workEnd = new Date(item?.End);
 
-    const workEnd = new Date(item?.Start);
-    workEnd.setHours(14, 0, 0, 0);
-
-    const dayStart = new Date(item?.Start);
+    // Full day range
+    const dayStart = new Date(workStart);
     dayStart.setHours(0, 0, 0, 0);
 
-    const dayEnd = new Date(item?.End);
+    const dayEnd = new Date(workEnd);
     dayEnd.setHours(23, 59, 59, 999);
 
     // Pre-work gap
     if (dayStart < workStart) {
       events.push({
-        resourceId: item?.SourceId,
+        resourceId: calenderIds[item?.QueriedCalendarId],
         start: dayStart,
         end: workStart,
         type: "gap",
@@ -793,7 +785,7 @@ function mapCalendarEvents(calendarData) {
     // Post-work gap
     if (workEnd < dayEnd) {
       events.push({
-        resourceId: item?.SourceId,
+        resourceId: calenderIds[item?.QueriedCalendarId],
         start: workEnd,
         end: dayEnd,
         type: "gap",
@@ -821,11 +813,7 @@ async function handleEventFetch() {
     let allEvents = [];
 
     // 1. If leave tab → fetch and map calendar availability
-    if (
-      currentTab === "leave" &&
-      calenderIds.size !== 0 &&
-      !calendarDataFetched
-    ) {
+    if (currentTab === "leave" && Object.keys(calenderIds).length !== 0) {
       console.log("Fetching calendar data before processing events...");
       try {
         const calendarData = await fetchCalendarData();
