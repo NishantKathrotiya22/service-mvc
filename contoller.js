@@ -59,27 +59,18 @@ async function switchTab(tab) {
       window.View.refreshCalendarUI();
     } else if (tab === "leave") {
       // Fetch everything needed for leave tab together
-      const [resources, timeOffData, workingHoursData, _events] =
-        await Promise.all([
-          window.Model.handleGetResorces(
-            getBookableResources,
-            mapOverIntialData
-          ),
-          window.Model.handleGetTimeoffWithoutSet(
-            getTimeOffRequests,
-            mapOverLeaveData
-          ),
-          window.Model.handleGetWorkingHours(
-            getWorkingHours,
-            mapOverWorkingHoursData
-          ),
-          window.Model.handleEventFetch(),
-        ]);
+      const [resources, timeOffData, _events] = await Promise.all([
+        window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
+        window.Model.handleGetTimeoffWithoutSet(
+          getTimeOffRequests,
+          mapOverLeaveData
+        ),
+
+        window.Model.handleEventFetch(),
+      ]);
 
       // Build lookups AFTER timeOff + workingHours finish
       window.Model.calculateLookupData(timeOffData);
-      window.Model.calculateWorkingHoursLookup(workingHoursData);
-
       const filteredResources = window.Model.applyAllFilters();
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
@@ -118,19 +109,14 @@ function resetFilters() {
 async function handleDateChange() {
   try {
     if (currentTab === "leave") {
-      const [timeOffData, workingHoursData] = await Promise.all([
+      const [timeOffData] = await Promise.all([
         window.Model.handleGetTimeoffWithoutSet(
           getTimeOffRequests,
           mapOverLeaveData
         ),
-        window.Model.handleGetWorkingHours(
-          getWorkingHours,
-          mapOverWorkingHoursData
-        ),
       ]);
 
       window.Model.calculateLookupData(timeOffData);
-      window.Model.calculateWorkingHoursLookup(workingHoursData);
 
       await window.Model.handleEventFetch();
       window.View.reRenderEvents();
@@ -172,19 +158,14 @@ async function refreshData() {
         mapOverIntialData
       );
 
-      const [timeOffData, workingHoursData] = await Promise.all([
+      const [timeOffData] = await Promise.all([
         window.Model.handleGetTimeoffWithoutSet(
           getTimeOffRequests,
           mapOverLeaveData
         ),
-        window.Model.handleGetWorkingHours(
-          getWorkingHours,
-          mapOverWorkingHoursData
-        ),
       ]);
 
       window.Model.calculateLookupData(timeOffData);
-      window.Model.calculateWorkingHoursLookup(workingHoursData);
 
       await window.Model.handleEventFetch();
 

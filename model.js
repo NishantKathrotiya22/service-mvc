@@ -42,7 +42,6 @@ let isEventFetching = false;
 let calendarDataFetched = false;
 
 let timeOffLookup = {};
-let workingHoursLookup = {};
 let calenderIds = {};
 
 const refLink = "..//WebResources/";
@@ -118,19 +117,6 @@ function getHolidays() {
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
     "crce0_ph_auto",
     "?$select=crce0_ph_autoid,crce0_date,crce0_holidayname"
-  );
-}
-
-function getWorkingHours() {
-  const { startDate, endDate } = getAdjustedDateRangeFromCalendar();
-  const query = [
-    "?$select=vel_calendarresourceworkinghourid,_vel_bookableresourceid_value,vel_duration,vel_enddate,vel_name,vel_startdate,statecode",
-    "&$filter=vel_startdate le " + endDate + " and vel_enddate ge " + startDate,
-  ].join("");
-
-  return window.parent.Xrm.WebApi.retrieveMultipleRecords(
-    "vel_calendarresourceworkinghour",
-    query
   );
 }
 
@@ -219,14 +205,6 @@ function mapOverIntialData(response) {
   });
 }
 
-function mapOverWorkingHoursData(response) {
-  return response.entities.map((r) => ({
-    id: r?._vel_bookableresourceid_value,
-    startTime: r?.vel_startdate,
-    endTime: r?.vel_enddate,
-  }));
-}
-
 function mapServiceType(data) {
   return data.entities.reduce((acc, item) => {
     acc[item.msdyn_incidenttypeid] = item.msdyn_name;
@@ -278,23 +256,8 @@ function calculateLookupData(data) {
   });
 }
 
-function calculateWorkingHoursLookup(data) {
-  workingHoursLookup = {};
-  data.forEach((workingHour) => {
-    const resourceId = workingHour?.id;
-    if (!workingHoursLookup[resourceId]) {
-      workingHoursLookup[resourceId] = [];
-    }
-    workingHoursLookup[resourceId].push({
-      start: new Date(workingHour?.startTime),
-      end: new Date(workingHour?.endTime),
-    });
-  });
-}
-
 function getEventClassName(eventStart, eventEnd, resourceId) {
   const leaves = timeOffLookup[resourceId];
-  const workingHours = workingHoursLookup[resourceId];
   const startDate = new Date(eventStart);
   const endDate = new Date(eventEnd);
 
@@ -305,30 +268,6 @@ function getEventClassName(eventStart, eventEnd, resourceId) {
       }
     }
   }
-
-  if (workingHours && workingHours.length > 0) {
-    const eventDay = startDate.toDateString();
-
-    const todaysHours = workingHours.filter(
-      (h) => h.start.toDateString() === eventDay
-    );
-
-    if (todaysHours.length > 0) {
-      let isWithinWorkingHours = false;
-      for (const hours of todaysHours) {
-        if (startDate >= hours.start && endDate <= hours.end) {
-          isWithinWorkingHours = true;
-          break;
-        }
-      }
-      if (!isWithinWorkingHours) {
-        return "ec-event-purple";
-      }
-    } else {
-      return "ec-event-active";
-    }
-  }
-
   return "ec-event-active";
 }
 
@@ -468,18 +407,6 @@ function handleGetTimeoffWithoutSet(getResources, mapResources) {
     });
 }
 
-function handleGetWorkingHours(getResources, mapResources) {
-  return getResources()
-    .then((response) => {
-      return mapResources(response);
-    })
-    .catch((error) => {
-      console.error("Error fetching working hours:", error);
-      resorcesState.isLoading = false;
-      resorcesState.isError = true;
-      throw error;
-    });
-}
 // Generate a unique batch boundary
 function generateBatchBoundary() {
   return "batch_" + crypto.randomUUID();
@@ -760,7 +687,7 @@ function mapCalendarEvents(calendarData) {
       return [];
     }
 
-    // Fixed work hours (could later come from workingHoursLookup)
+    // Fixed work hours
     const workStart = new Date(item?.Start);
     const workEnd = new Date(item?.End);
 
@@ -924,7 +851,6 @@ window.Model = {
   handleGetResorces,
   handleFilterFetch,
   handleGetTimeoffWithoutSet,
-  handleGetWorkingHours,
   handleEventFetch,
   fetchCalendarData,
   loadHolidayDates,
@@ -944,6 +870,5 @@ window.Model = {
     filterState[key] = value;
   },
   calculateLookupData,
-  calculateWorkingHoursLookup,
   getEventClassName,
 };
