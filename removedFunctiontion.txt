@@ -1,4 +1,0 @@
-calculateWorkingHoursLookup
-getWorkingHours
-mapOverWorkingHoursData
-handleGetWorkingHours
