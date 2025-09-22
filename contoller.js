@@ -19,16 +19,18 @@ async function init() {
     window.View.initRefreshBtn();
     window.View.tooltipObserver();
 
-    // 4. Load all required data
+    // 4. First ensure bookableResourceCategoryHandler completes to get calendar IDs
+    await window.Model.bookableResourceCategoryHandler();
+    
+    // 5. Then load other data in parallel
     await Promise.all([
-      window.Model.bookableResourceCategoryHandler(),
       getServiceType().then((data) => {
         serviceType = window.Model.mapServiceType(data);
       }),
       handleFilterFetch(),
     ]);
 
-    // 5. Set global references
+    // 6. Set global references and switch tab
     currentTab = "init";
     await switchTab("init");
     window.refreshCalendarUI = window.View.refreshCalendarUI;
@@ -47,30 +49,42 @@ async function switchTab(tab) {
     window.Model.resetEventFetchFlags();
 
     if (tab === "init") {
-      // Fetch resources + events together
-      const [resources] = await Promise.all([
-        window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
-        window.Model.handleEventFetch(),
-      ]);
+      // 1. First ensure resources are loaded
+      const resources = await window.Model.handleGetResorces(getBookableResources, mapOverIntialData);
+      
+      // 2. Then fetch work hours and time off data
+      const timeOffData = await window.Model.handleGetTimeoffWithoutSet(
+        getTimeOffRequests,
+        mapOverLeaveData
+      );
+      
+      // 3. Update lookups with work hours and time off data
+      window.Model.calculateLookupData(timeOffData);
+      
+      // 4. Now fetch events with all required data ready
+      await window.Model.handleEventFetch();
 
+      // 5. Finally, update the UI
       const filteredResources = window.Model.applyAllFilters();
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
+      
     } else if (tab === "leave") {
-      // Fetch everything needed for leave tab together
-      const [resources, timeOffData, _events] = await Promise.all([
+      // For leave tab, we can load resources and time off data in parallel
+      const [resources, timeOffData] = await Promise.all([
         window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
         window.Model.handleGetTimeoffWithoutSet(
           getTimeOffRequests,
           mapOverLeaveData
-        ),
-
-        window.Model.handleEventFetch(),
+        )
       ]);
 
-      // Build lookups AFTER timeOff + workingHours finish
+      // Build lookups and then fetch events
       window.Model.calculateLookupData(timeOffData);
+      await window.Model.handleEventFetch();
+      
+      // Update UI
       const filteredResources = window.Model.applyAllFilters();
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();

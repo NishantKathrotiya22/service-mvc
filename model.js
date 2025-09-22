@@ -740,7 +740,7 @@ async function handleEventFetch() {
     let allEvents = [];
 
     // 1. If leave tab → fetch and map calendar availability
-    if (currentTab === "leave" && Object.keys(calenderIds).length !== 0) {
+    if (currentTab === "init" && Object.keys(calenderIds).length !== 0) {
       console.log("Fetching calendar data before processing events...");
       try {
         const calendarData = await fetchCalendarData();
