@@ -1,8 +1,11 @@
 // controller.js
 // Controller: Coordinates Model and View, handles events and state updates
 
+let __suppressDateChangeOnce = false;
+
 // Initialization
 async function init() {
+  console.log("Initialization Called");
   try {
     // 1. First load holiday dates
     await window.Model.loadHolidayDates();
@@ -21,7 +24,7 @@ async function init() {
 
     // 4. First ensure bookableResourceCategoryHandler completes to get calendar IDs
     await window.Model.bookableResourceCategoryHandler();
-    
+
     // 5. Then load other data in parallel
     await Promise.all([
       getServiceType().then((data) => {
@@ -32,6 +35,8 @@ async function init() {
 
     // 6. Set global references and switch tab
     currentTab = "init";
+    // Suppress the datesSet-triggered handleDateChange once during initial switch
+    __suppressDateChangeOnce = true;
     await switchTab("init");
     window.refreshCalendarUI = window.View.refreshCalendarUI;
   } catch (error) {
@@ -40,50 +45,51 @@ async function init() {
 }
 
 async function switchTab(tab) {
+  console.log("Switch Tab Called", tab);
   try {
     currentTab = tab;
-    resetFilters();
+    // Reset filters without triggering immediate render; we'll render after all fetches complete
+    window.Model.resetFilterState();
+    window.View.resetFilterUI();
     window.View.resetDynamicHeight();
+    window.Model.resetState();
 
     // Cancel any in-progress fetches
     window.Model.resetEventFetchFlags();
 
     if (tab === "init") {
-      // 1. First ensure resources are loaded
-      const resources = await window.Model.handleGetResorces(getBookableResources, mapOverIntialData);
-      
-      // 2. Then fetch work hours and time off data
-      const timeOffData = await window.Model.handleGetTimeoffWithoutSet(
-        getTimeOffRequests,
-        mapOverLeaveData
+      // Ensure calendar view date change does not trigger duplicate fetch
+      __suppressDateChangeOnce = true;
+      // 1. Fetch resources (shows loading state inside Model)
+      await window.Model.handleGetResorces(
+        getBookableResources,
+        mapOverIntialData
       );
-      
-      // 3. Update lookups with work hours and time off data
-      window.Model.calculateLookupData(timeOffData);
-      
-      // 4. Now fetch events with all required data ready
+
+      // 2. Fetch events (this waits for any calendar batch work if needed)
       await window.Model.handleEventFetch();
 
-      // 5. Finally, update the UI
+      // 3. Render resources and events together
       const filteredResources = window.Model.applyAllFilters();
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
-      
     } else if (tab === "leave") {
+      // Ensure calendar view date change does not trigger duplicate fetch
+      __suppressDateChangeOnce = true;
       // For leave tab, we can load resources and time off data in parallel
       const [resources, timeOffData] = await Promise.all([
         window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
         window.Model.handleGetTimeoffWithoutSet(
           getTimeOffRequests,
           mapOverLeaveData
-        )
+        ),
       ]);
 
       // Build lookups and then fetch events
       window.Model.calculateLookupData(timeOffData);
       await window.Model.handleEventFetch();
-      
+
       // Update UI
       const filteredResources = window.Model.applyAllFilters();
       window.View.reRenderResources(filteredResources);
@@ -122,6 +128,11 @@ function resetFilters() {
 
 async function handleDateChange() {
   try {
+    if (__suppressDateChangeOnce) {
+      // Skip one automatic date-change fetch triggered by view lifecycle
+      __suppressDateChangeOnce = false;
+      return;
+    }
     if (currentTab === "leave") {
       const [timeOffData] = await Promise.all([
         window.Model.handleGetTimeoffWithoutSet(

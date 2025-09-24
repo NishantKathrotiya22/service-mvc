@@ -845,6 +845,16 @@ function resetEventFetchFlags() {
   isEventFetching = false;
   calendarDataFetched = false;
 }
+function resetState() {
+  filterState.region = [];
+  filterState.worktype = [];
+  filterState.search = "";
+  filterState.sortAsc = true;
+  isEventFetching = false;
+  calendarDataFetched = false;
+  eventData = [];
+  resourceData = [];
+}
 
 // Expose model functions for controller
 window.Model = {
@@ -871,4 +881,5 @@ window.Model = {
   },
   calculateLookupData,
   getEventClassName,
+  resetState,
 };
