@@ -43,6 +43,7 @@ let calendarDataFetched = false;
 
 let timeOffLookup = {};
 let calenderIds = {};
+let calenderRuleIds = [];
 
 const refLink = "..//WebResources/";
 
@@ -412,6 +413,147 @@ function generateBatchBoundary() {
   return "batch_" + crypto.randomUUID();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////
+//   Batch Request to get _innercalender_id to get patterns (Comes from Calneder rules) //
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Process a batch of calendar_rules requests
+async function processCalendarRulesBatch(batch) {
+  const boundary = generateBatchBoundary();
+
+  // Build requests for each calendarId
+  const requests = batch.map((calendarId) => {
+    const url = `/api/data/v9.2/calendars(${calendarId})?$select=calendarid&$expand=calendar_calendar_rules($select=_innercalendarid_value,pattern)`;
+
+    return {
+      method: "GET",
+      url,
+      headers: {
+        Accept: "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        Prefer: 'odata.include-annotations="*"',
+      },
+    };
+  });
+
+  // Track mapping between Content-ID and calendarId
+  const requestsMeta = batch.map((calendarId, idx) => ({
+    contentId: idx + 1,
+    calendarId,
+  }));
+
+  const body = createBatchRequestBody(requests, boundary);
+
+  const response = await fetch(
+    `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.2/$batch`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/mixed; boundary=${boundary}`,
+        Accept: "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+      },
+      body,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Calendar rules batch failed: ${response.status}`);
+  }
+
+  const text = await response.text();
+  const parsed = parseBatchResponse(text, requestsMeta);
+
+  // Each parsed entry is the whole calendar entity; extract calendar_calendar_rules
+  const combinedIds = [];
+
+  parsed.forEach((entity) => {
+    if (entity?.calendar_calendar_rules) {
+      entity.calendar_calendar_rules.forEach((rule) => {
+        if (
+          rule?.pattern === "FREQ=DAILY;COUNT=1" &&
+          rule._innercalendarid_value
+        ) {
+          combinedIds.push(rule._innercalendarid_value);
+        }
+      });
+    }
+  });
+
+  return combinedIds;
+}
+
+// Fallback for individual fetches if batch fails
+async function processCalendarRulesIndividually(batch) {
+  const promises = batch.map(async (calendarId) => {
+    try {
+      const url = `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.2/calendars(${calendarId})?$select=calendarid&$expand=calendar_calendar_rules($select=_innercalendarid_value,pattern)`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "OData-MaxVersion": "4.0",
+          "OData-Version": "4.0",
+          Prefer: 'odata.include-annotations="*"',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn(
+          `Failed to fetch rules for ${calendarId}: ${response.status}`
+        );
+        return [];
+      }
+
+      const data = await response.json();
+      const rules = data?.calendar_calendar_rules || [];
+      rules.forEach((rule) => (rule.QueriedCalendarId = calendarId));
+      return rules;
+    } catch (error) {
+      console.warn(`Error fetching rules for ${calendarId}:`, error.message);
+      return [];
+    }
+  });
+
+  const results = await Promise.all(promises);
+  return results.flat();
+}
+
+// Fetch all calendar rules in batches
+async function fetchCalendarRules() {
+  if (Object.keys(calenderIds).length === 0) return [];
+
+  const ids = Object.keys(calenderIds);
+  const batchSize = 40; // CRM limit
+  const results = [];
+
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const chunk = ids.slice(i, i + batchSize);
+    console.log(
+      `Processing calendar rules batch ${i / batchSize + 1} (${chunk.length})`
+    );
+
+    try {
+      const batchResults = await processCalendarRulesBatch(chunk);
+      results.push(...batchResults);
+    } catch (err) {
+      console.error("Rules batch failed, falling back:", err.message);
+      const fallback = await processCalendarRulesIndividually(chunk);
+      results.push(...fallback);
+    }
+  }
+
+  console.log(`Fetched ${results.length} total calendar rules`, results);
+  return results;
+}
+
+////////////////////////////////////////////
+//  Batch Request to get Workhours       //
+//////////////////////////////////////////
+
 // Create batch request body
 function createBatchRequestBody(batchRequests, boundary) {
   let body = "";
@@ -743,6 +885,10 @@ async function handleEventFetch() {
     if (currentTab === "init" && Object.keys(calenderIds).length !== 0) {
       console.log("Fetching calendar data before processing events...");
       try {
+        console.log("Starting With Fetching Calnder Rules");
+        const calenderIDS = await fetchCalendarRules();
+        console.log("Afetr all the Things", calenderIDS);
+        console.log("Done with Fetching Calnder Rules");
         const calendarData = await fetchCalendarData();
         calendarDataFetched = true;
         const calendarEvents = mapCalendarEvents(calendarData);
