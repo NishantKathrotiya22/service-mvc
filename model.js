@@ -895,12 +895,20 @@ async function handleEventFetch() {
     if (currentTab === "init" && Object.keys(calenderIds).length !== 0) {
       console.log("Fetching calendar data before processing events...");
       try {
-        console.log("Starting With Fetching Calnder Rules");
-        const calenderIDS = await fetchCalendarRules();
-        calenderRuleIds = calenderIDS;
-        console.log("Afetr all the Things", calenderIDS);
-        console.log("Done with Fetching Calnder Rules");
-        const calendarData = await fetchCalendarData();
+        console.log(
+          "------------------ Controller Started creating object -------------------"
+        );
+        const testData = await buildResourcePatterns();
+        console.log("Logging Over new Data", testData);
+
+        console.log("------------- Test Evnts -----------");
+        const nonWorking = generateSplitEvents(
+          testData,
+          "2025-10-03",
+          "2025-10-15"
+        );
+        console.log(nonWorking);
+
         calendarDataFetched = true;
         const calendarEvents = mapCalendarEvents(calendarData);
         allEvents.push(...calendarEvents);
@@ -1013,6 +1021,419 @@ function resetState() {
   resourceData = [];
 }
 
+// ----------------------
+// Helper utilities
+// ----------------------
+function chunkArray(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size)
+    chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
+function parseByDay(pattern) {
+  const m = pattern && pattern.match(/BYDAY=([^;]+)/i);
+  return m ? m[1].split(",").map((s) => s.trim()) : [];
+}
+
+/**
+ * Compute UTC timestamp for a day's start + offset (minutes).
+ * We create the UTC midnight of baseDate then add offset minutes.
+ * baseDate should be a rule.starttime or similar from CRM (ISO string).
+ */
+function calculateUtcTime(offsetMinutes) {
+  if (offsetMinutes == null) return null;
+
+  const h = Math.floor(offsetMinutes / 60);
+  const m = offsetMinutes % 60;
+
+  // always UTC time
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+}
+
+// ----------------------
+// Batch helper: fetch parent calendars + their rules
+// ----------------------
+async function processCalendarRulesBatchDetailed(batch) {
+  const boundary = generateBatchBoundary();
+
+  const requests = batch.map((calendarId) => {
+    // expand only calendar_calendar_rules (no nested expands)
+    const url = `/api/data/v9.2/calendars(${calendarId})?$select=calendarid&$expand=calendar_calendar_rules($select=calendarruleid,_innercalendarid_value,pattern,starttime,effectiveintervalend,createdon,duration)`;
+    return {
+      method: "GET",
+      url,
+      headers: {
+        Accept: "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        Prefer: 'odata.include-annotations="*"',
+      },
+    };
+  });
+
+  const requestsMeta = batch.map((calendarId, idx) => ({
+    contentId: idx + 1,
+    calendarId,
+  }));
+
+  const body = createBatchRequestBody(requests, boundary);
+
+  const response = await fetch(
+    `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.2/$batch`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/mixed; boundary=${boundary}`,
+        Accept: "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+      },
+      body,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Calendar rules (detailed) batch failed: ${response.status}`
+    );
+  }
+
+  const text = await response.text();
+  // parseBatchResponse should return an array of calendar entities
+  return parseBatchResponse(text, requestsMeta);
+}
+
+// Fallback: individual fetch for parent calendars (if batch fails)
+async function processCalendarRulesIndividually(batch) {
+  const promises = batch.map(async (calendarId) => {
+    try {
+      const url = `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.2/calendars(${calendarId})?$select=calendarid&$expand=calendar_calendar_rules($select=calendarruleid,_innercalendarid_value,pattern,starttime,effectiveintervalend,createdon,duration)`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "OData-MaxVersion": "4.0",
+          "OData-Version": "4.0",
+          Prefer: 'odata.include-annotations="*"',
+        },
+      });
+      if (!res.ok) {
+        console.warn(
+          `Individual fetch failed for ${calendarId}: ${res.status}`
+        );
+        return null;
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn(`Individual fetch error for ${calendarId}:`, err.message);
+      return null;
+    }
+  });
+
+  const results = await Promise.all(promises);
+  return results.filter(Boolean);
+}
+
+// ----------------------
+// Batch helper: fetch inner calendars + their rules (offset/duration)
+// ----------------------
+async function processInnerCalendarsBatch(batch) {
+  const boundary = generateBatchBoundary();
+
+  const requests = batch.map((calendarId) => {
+    // fetch the inner calendar and expand its calendar_calendar_rules to read offset/duration
+    const url = `/api/data/v9.2/calendars(${calendarId})?$select=calendarid&$expand=calendar_calendar_rules($select=calendarruleid,offset,duration,starttime,endtime,pattern)`;
+    return {
+      method: "GET",
+      url,
+      headers: {
+        Accept: "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        Prefer: 'odata.include-annotations="*"',
+      },
+    };
+  });
+
+  const requestsMeta = batch.map((calendarId, idx) => ({
+    contentId: idx + 1,
+    calendarId,
+  }));
+
+  const body = createBatchRequestBody(requests, boundary);
+
+  const response = await fetch(
+    `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.2/$batch`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/mixed; boundary=${boundary}`,
+        Accept: "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+      },
+      body,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Inner calendars batch failed: ${response.status}`);
+  }
+
+  const text = await response.text();
+  return parseBatchResponse(text, requestsMeta);
+}
+
+async function processInnerCalendarsIndividually(batch) {
+  const promises = batch.map(async (calendarId) => {
+    try {
+      const url = `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.2/calendars(${calendarId})?$select=calendarid&$expand=calendar_calendar_rules($select=calendarruleid,offset,duration,starttime,endtime,pattern)`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "OData-MaxVersion": "4.0",
+          "OData-Version": "4.0",
+          Prefer: 'odata.include-annotations="*"',
+        },
+      });
+      if (!res.ok) {
+        console.warn(
+          `Inner individual fetch failed for ${calendarId}: ${res.status}`
+        );
+        return null;
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn(
+        `Inner individual fetch error for ${calendarId}:`,
+        err.message
+      );
+      return null;
+    }
+  });
+
+  const results = await Promise.all(promises);
+  return results.filter(Boolean);
+}
+
+// ----------------------
+// Main function - replacement for previous buildResourcePatterns
+// ----------------------
+async function buildResourcePatterns() {
+  const parentCalendarIds = Object.keys(calenderIds || {}); // calenderIds maps parentCalendarId -> resourceId
+  if (!parentCalendarIds || parentCalendarIds.length === 0) return [];
+
+  const batchSize = 40; // CRM recommended batch size
+  const output = [];
+
+  const parentChunks = chunkArray(parentCalendarIds, batchSize);
+  for (let chunkIdx = 0; chunkIdx < parentChunks.length; chunkIdx++) {
+    const chunk = parentChunks[chunkIdx];
+    console.log(
+      `Processing parent calendars batch ${chunkIdx + 1} (count: ${
+        chunk.length
+      })`
+    );
+
+    // 1) Fetch parent calendars + their rules (no nested expand)
+    let parentEntities = [];
+    try {
+      parentEntities = await processCalendarRulesBatchDetailed(chunk);
+    } catch (err) {
+      console.warn(
+        "Batch fetch for parent calendars failed, falling back to individual fetch:",
+        err.message
+      );
+      parentEntities = await processCalendarRulesIndividually(chunk);
+    }
+
+    // Normalize parentEntities into rule objects of interest (only patterns that contain BYDAY)
+    const rulesOfInterest = [];
+    for (const entity of parentEntities) {
+      const parentCalendarId = entity?.calendarid || entity?.CalendarId || null;
+      const parentRules = entity?.calendar_calendar_rules || [];
+      for (const rule of parentRules) {
+        if (!rule?.pattern) continue;
+        // Only process patterns that contain BYDAY (per your requirement)
+        if (!rule.pattern.includes("BYDAY")) continue;
+
+        rulesOfInterest.push({
+          parentCalendarId,
+          parentResourceId: calenderIds[parentCalendarId], // map calendar -> resource id (bookableresource)
+          createdon: rule?.createdon ?? entity.createdon,
+          effectiveintervalstart: rule?.starttime,
+          effectiveintervalend: rule?.effectiveintervalend,
+          pattern: rule?.pattern,
+          days: parseByDay(rule?.pattern),
+          innerCalendarId: rule?._innercalendarid_value,
+          parentRuleId: rule?.calendarruleid,
+        });
+      }
+    }
+
+    if (rulesOfInterest.length === 0) {
+      // nothing to do for this chunk
+      continue;
+    }
+
+    // 2) Collect unique inner calendar IDs and fetch them in batches
+    const uniqueInnerIds = [
+      ...new Set(rulesOfInterest.map((r) => r.innerCalendarId).filter(Boolean)),
+    ];
+    const innerChunks = chunkArray(uniqueInnerIds, batchSize);
+    const innerMap = Object.create(null); // innerCalendarId -> innerEntity
+
+    for (let ic = 0; ic < innerChunks.length; ic++) {
+      const innerChunk = innerChunks[ic];
+      console.log(
+        `Fetching inner calendars batch ${ic + 1} (count: ${innerChunk.length})`
+      );
+      let innerEntities = [];
+      try {
+        innerEntities = await processInnerCalendarsBatch(innerChunk);
+      } catch (err) {
+        console.warn(
+          "Batch fetch for inner calendars failed, falling back to individual fetch:",
+          err.message
+        );
+        innerEntities = await processInnerCalendarsIndividually(innerChunk);
+      }
+
+      // parseBatchResponse may return an array of calendar entities — store them in the map
+      for (const ie of innerEntities) {
+        if (ie?.calendarid) innerMap[ie.calendarid] = ie;
+      }
+    }
+
+    // 3) Join rulesOfInterest with innerMap and compute start/end (UTC)
+    for (const r of rulesOfInterest) {
+      const innerEntity = innerMap[r.innerCalendarId];
+      if (!innerEntity) {
+        // no inner calendar found — skip or keep minimal entry
+        console.warn(
+          "No inner calendar found for",
+          r.innerCalendarId,
+          "skipping rule",
+          r.parentRuleId
+        );
+        continue;
+      }
+
+      const innerRules = innerEntity.calendar_calendar_rules || [];
+      // pick inner rule that has offset/duration, else fallback to first
+      let chosenInnerRule = innerRules.find(
+        (x) => x && (x.offset != null || x.duration != null)
+      );
+      if (!chosenInnerRule) chosenInnerRule = innerRules[0];
+
+      if (!chosenInnerRule) {
+        console.warn(
+          "Inner calendar contains no rules (offset/duration) for",
+          r.innerCalendarId
+        );
+        continue;
+      }
+
+      const offset = Number(chosenInnerRule.offset) || 0; // minutes
+      const duration = Number(chosenInnerRule.duration) || 0; // minutes
+
+      const startUtc = calculateUtcTime(offset);
+      const endUtc = calculateUtcTime(offset + duration);
+
+      output.push({
+        resourceID: r.parentResourceId,
+        createdon: r.createdon,
+        effectiveintervalstart: r.effectiveintervalstart,
+        effectiveintervalend: r?.effectiveintervalend,
+        days: r.days,
+        start: startUtc,
+        end: endUtc,
+        // extras for debugging / traceability:
+        parentCalendarId: r.parentCalendarId,
+        parentRuleId: r.parentRuleId,
+        innerCalendarId: r.innerCalendarId,
+        offset,
+        duration,
+      });
+    }
+  }
+
+  return output;
+}
+
+// Function : It Gernates BG Events For Work Non-hours
+
+function generateSplitEvents(testData, inputStart, inputEnd) {
+  const dayMap = {
+    SU: 0,
+    MO: 1,
+    TU: 2,
+    WE: 3,
+    TH: 4,
+    FR: 5,
+    SA: 6,
+  };
+
+  const results = [];
+
+  // Convert input start/end to Date objects
+  const startDate = new Date(inputStart);
+  const endDate = new Date(inputEnd);
+
+  // Loop over all days in the input range
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const currentDay = d.getDay(); // 0 (Sunday) - 6 (Saturday)
+
+    testData.forEach((item) => {
+      const effectiveStart = new Date(item.effectiveintervalstart);
+      const effectiveEnd = new Date(item.effectiveintervalend);
+
+      // Check if current date is within the effective interval
+      if (d >= effectiveStart && d <= effectiveEnd) {
+        // Check if the current day is in the allowed days
+        if (item.days.some((day) => dayMap[day] === currentDay)) {
+          // Create the two event blocks
+
+          // 1. From 00:00 to start time
+          const [startH, startM, startS] = item.start.split(":").map(Number);
+          const startBlockStart = new Date(d);
+          const startBlockEnd = new Date(d);
+          startBlockEnd.setHours(startH, startM, startS, 0);
+
+          results.push({
+            resourceId: item.resourceID,
+            start: startBlockStart,
+            end: startBlockEnd,
+            createdon: item.createdon,
+            type: "gap",
+            display: "background",
+          });
+
+          // 2. From end time to 24:00 (i.e., 23:59:59.999)
+          const [endH, endM, endS] = item.end.split(":").map(Number);
+          const endBlockStart = new Date(d);
+          endBlockStart.setHours(endH, endM, endS, 0);
+          const endBlockEnd = new Date(d);
+          endBlockEnd.setHours(23, 59, 59, 999);
+
+          results.push({
+            resourceId: item.resourceID,
+            start: endBlockStart,
+            end: endBlockEnd,
+            createdon: item.createdon,
+            type: "gap",
+            display: "background",
+          });
+        }
+      }
+    });
+  }
+
+  return results;
+}
+
 // Expose model functions for controller
 window.Model = {
   handleGetResorces,
@@ -1039,4 +1460,5 @@ window.Model = {
   calculateLookupData,
   getEventClassName,
   resetState,
+  buildResourcePatterns,
 };
