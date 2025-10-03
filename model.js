@@ -43,7 +43,8 @@ let calendarDataFetched = false;
 
 let timeOffLookup = {};
 let calenderIds = {};
-let calenderRuleIds = [];
+//Object that contains all the work hours pattern that has (BYDAY in pattern)
+let workHoursPattern = [];
 
 const refLink = "..//WebResources/";
 
@@ -413,143 +414,6 @@ function generateBatchBoundary() {
   return "batch_" + crypto.randomUUID();
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////
-//   Batch Request to get _innercalender_id to get patterns (Comes from Calneder rules) //
-/////////////////////////////////////////////////////////////////////////////////////////
-
-// Process a batch of calendar_rules requests
-async function processCalendarRulesBatch(batch) {
-  const boundary = generateBatchBoundary();
-
-  // Build requests for each calendarId
-  const requests = batch.map((calendarId) => {
-    const url = `/api/data/v9.2/calendars(${calendarId})?$select=calendarid&$expand=calendar_calendar_rules($select=_innercalendarid_value,pattern)`;
-
-    return {
-      method: "GET",
-      url,
-      headers: {
-        Accept: "application/json",
-        "OData-MaxVersion": "4.0",
-        "OData-Version": "4.0",
-        Prefer: 'odata.include-annotations="*"',
-      },
-    };
-  });
-
-  // Track mapping between Content-ID and calendarId
-  const requestsMeta = batch.map((calendarId, idx) => ({
-    contentId: idx + 1,
-    calendarId,
-  }));
-
-  const body = createBatchRequestBody(requests, boundary);
-
-  const response = await fetch(
-    `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.2/$batch`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": `multipart/mixed; boundary=${boundary}`,
-        Accept: "application/json",
-        "OData-MaxVersion": "4.0",
-        "OData-Version": "4.0",
-      },
-      body,
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Calendar rules batch failed: ${response.status}`);
-  }
-
-  const text = await response.text();
-  const parsed = parseBatchResponse(text, requestsMeta);
-
-  // Each parsed entry is the whole calendar entity; extract calendar_calendar_rules
-  const combinedIds = [];
-
-  parsed.forEach((entity) => {
-    if (entity?.calendar_calendar_rules) {
-      entity.calendar_calendar_rules.forEach((rule) => {
-        if (
-          rule?.pattern === "FREQ=DAILY;COUNT=1" &&
-          rule._innercalendarid_value
-        ) {
-          combinedIds.push(rule._innercalendarid_value);
-        }
-      });
-    }
-  });
-
-  return combinedIds;
-}
-
-// Fallback for individual fetches if batch fails
-async function processCalendarRulesIndividually(batch) {
-  const promises = batch.map(async (calendarId) => {
-    try {
-      const url = `${window.parent.Xrm.Utility.getGlobalContext().getClientUrl()}/api/data/v9.2/calendars(${calendarId})?$select=calendarid&$expand=calendar_calendar_rules($select=_innercalendarid_value,pattern)`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "OData-MaxVersion": "4.0",
-          "OData-Version": "4.0",
-          Prefer: 'odata.include-annotations="*"',
-        },
-      });
-
-      if (!response.ok) {
-        console.warn(
-          `Failed to fetch rules for ${calendarId}: ${response.status}`
-        );
-        return [];
-      }
-
-      const data = await response.json();
-      const rules = data?.calendar_calendar_rules || [];
-      rules.forEach((rule) => (rule.QueriedCalendarId = calendarId));
-      return rules;
-    } catch (error) {
-      console.warn(`Error fetching rules for ${calendarId}:`, error.message);
-      return [];
-    }
-  });
-
-  const results = await Promise.all(promises);
-  return results.flat();
-}
-
-// Fetch all calendar rules in batches
-async function fetchCalendarRules() {
-  if (Object.keys(calenderIds).length === 0) return [];
-
-  const ids = Object.keys(calenderIds);
-  const batchSize = 40; // CRM limit
-  const results = [];
-
-  for (let i = 0; i < ids.length; i += batchSize) {
-    const chunk = ids.slice(i, i + batchSize);
-    console.log(
-      `Processing calendar rules batch ${i / batchSize + 1} (${chunk.length})`
-    );
-
-    try {
-      const batchResults = await processCalendarRulesBatch(chunk);
-      results.push(...batchResults);
-    } catch (err) {
-      console.error("Rules batch failed, falling back:", err.message);
-      const fallback = await processCalendarRulesIndividually(chunk);
-      results.push(...fallback);
-    }
-  }
-
-  console.log(`Fetched ${results.length} total calendar rules`, results);
-  return results;
-}
-
 ////////////////////////////////////////////
 //  Batch Request to get Workhours       //
 //////////////////////////////////////////
@@ -723,41 +587,6 @@ async function processBatchIndividually(batch, startDate, endDate) {
   return chunks.flat();
 }
 
-// Fetch all calendar data in batches
-async function fetchCalendarData() {
-  if (Object.keys(calenderIds).length === 0) return [];
-
-  const { startDate, endDate } = getAdjustedDateRangeFromCalendar();
-  const ids = Object.keys(calenderIds);
-  const batchSize = 40; // max supported
-  const results = [];
-
-  for (let i = 0; i < ids.length; i += batchSize) {
-    const chunk = ids.slice(i, i + batchSize);
-    console.log(
-      `Processing batch ${i / batchSize + 1} (${chunk.length} calendars)`
-    );
-
-    try {
-      const batchResults = await processBatch(chunk, startDate, endDate);
-      results.push(...batchResults);
-    } catch (err) {
-      console.error("Batch failed, falling back to individual:", err.message);
-      const fallback = await processBatchIndividually(
-        chunk,
-        startDate,
-        endDate
-      );
-      results.push(...fallback);
-    }
-  }
-
-  console.log(`Fetched ${results.length} total calendar results`);
-  console.log("Calendar data batch processing completed successfully");
-  console.log(results);
-  return results;
-}
-
 // =====================
 // Helpers
 // =====================
@@ -821,61 +650,6 @@ function mapBookingEvents(response) {
   });
 }
 
-// Map availability calendar items into background events
-function mapCalendarEvents(calendarData) {
-  return calendarData.flatMap((item) => {
-    const events = [];
-    if (item?.TimeCode !== "Available") {
-      return [];
-    }
-
-    // Fixed work hours
-    const workStart = new Date(item?.Start);
-    const workEnd = new Date(item?.End);
-
-    // Full day range
-    const dayStart = new Date(workStart);
-    dayStart.setHours(0, 0, 0, 0);
-
-    const dayEnd = new Date(workEnd);
-    dayEnd.setHours(23, 59, 59, 999);
-
-    // Pre-work gap
-    if (dayStart < workStart) {
-      let event = {
-        resourceId: calenderIds[item?.QueriedCalendarId],
-        start: dayStart,
-        end: workStart,
-        type: "gap",
-        display: "background",
-      };
-      if (calenderRuleIds.includes(item?.CalendarId)) {
-        event.className = ["ec-bg-event-edited"];
-        console.log("event editd for ", item?.CalendarId);
-      }
-      events.push(event);
-    }
-
-    // Post-work gap
-    if (workEnd < dayEnd) {
-      let event = {
-        resourceId: calenderIds[item?.QueriedCalendarId],
-        start: workEnd,
-        end: dayEnd,
-        type: "gap",
-        display: "background",
-      };
-      if (calenderRuleIds.includes(item?.CalendarId)) {
-        event.className = ["ec-bg-event-edited"];
-        console.log("event editd for ", item?.CalendarId);
-      }
-      events.push(event);
-    }
-
-    return events;
-  });
-}
-
 // =====================
 // Main Event Fetcher
 // =====================
@@ -893,25 +667,17 @@ async function handleEventFetch() {
 
     // 1. If leave tab → fetch and map calendar availability
     if (currentTab === "init" && Object.keys(calenderIds).length !== 0) {
-      console.log("Fetching calendar data before processing events...");
       try {
-        console.log(
-          "------------------ Controller Started creating object -------------------"
+        // Get the Calender Range
+        const { startDate, endDate } = getAdjustedDateRangeFromCalendar();
+        // Get the BG Evnts for Date Range from pattern Data
+        const bgEvnts = generateSplitEvents(
+          workHoursPattern,
+          startDate,
+          endDate
         );
-        const testData = await buildResourcePatterns();
-        console.log("Logging Over new Data", testData);
-
-        console.log("------------- Test Evnts -----------");
-        const nonWorking = generateSplitEvents(
-          testData,
-          "2025-10-03",
-          "2025-10-15"
-        );
-        console.log(nonWorking);
-
-        calendarDataFetched = true;
-        const calendarEvents = mapCalendarEvents(calendarData);
-        allEvents.push(...calendarEvents);
+        //Push all the events in current array
+        allEvents.push(...bgEvnts);
       } catch (error) {
         console.error("Failed to fetch calendar data:", error);
       }
@@ -1221,6 +987,7 @@ async function processInnerCalendarsIndividually(batch) {
 // ----------------------
 // Main function - replacement for previous buildResourcePatterns
 // ----------------------
+
 async function buildResourcePatterns() {
   const parentCalendarIds = Object.keys(calenderIds || {}); // calenderIds maps parentCalendarId -> resourceId
   if (!parentCalendarIds || parentCalendarIds.length === 0) return [];
@@ -1359,13 +1126,16 @@ async function buildResourcePatterns() {
       });
     }
   }
-
+  workHoursPattern = output;
   return output;
 }
 
-// Function : It Gernates BG Events For Work Non-hours
+// Function : that Gernates BG Events For Work Non working hours from pattern
+function generateSplitEvents(data, inputStart, inputEnd) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return [];
+  }
 
-function generateSplitEvents(testData, inputStart, inputEnd) {
   const dayMap = {
     SU: 0,
     MO: 1,
@@ -1378,29 +1148,28 @@ function generateSplitEvents(testData, inputStart, inputEnd) {
 
   const results = [];
 
-  // Convert input start/end to Date objects
   const startDate = new Date(inputStart);
   const endDate = new Date(inputEnd);
 
-  // Loop over all days in the input range
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-    const currentDay = d.getDay(); // 0 (Sunday) - 6 (Saturday)
+  for (
+    let d = new Date(startDate);
+    d <= endDate;
+    d.setUTCDate(d.getUTCDate() + 1)
+  ) {
+    const currentDay = d.getUTCDay(); // Use UTC day
 
-    testData.forEach((item) => {
+    data.forEach((item) => {
       const effectiveStart = new Date(item.effectiveintervalstart);
       const effectiveEnd = new Date(item.effectiveintervalend);
 
-      // Check if current date is within the effective interval
       if (d >= effectiveStart && d <= effectiveEnd) {
-        // Check if the current day is in the allowed days
         if (item.days.some((day) => dayMap[day] === currentDay)) {
-          // Create the two event blocks
+          const isoDate = d.toISOString().split("T")[0]; // YYYY-MM-DD
 
-          // 1. From 00:00 to start time
-          const [startH, startM, startS] = item.start.split(":").map(Number);
-          const startBlockStart = new Date(d);
-          const startBlockEnd = new Date(d);
-          startBlockEnd.setHours(startH, startM, startS, 0);
+          // First block: 00:00 to shift start
+          const startTimeStr = `${isoDate}T${item.start}Z`;
+          const startBlockEnd = new Date(startTimeStr);
+          const startBlockStart = new Date(`${isoDate}T00:00:00Z`);
 
           results.push({
             resourceId: item.resourceID,
@@ -1411,12 +1180,10 @@ function generateSplitEvents(testData, inputStart, inputEnd) {
             display: "background",
           });
 
-          // 2. From end time to 24:00 (i.e., 23:59:59.999)
-          const [endH, endM, endS] = item.end.split(":").map(Number);
-          const endBlockStart = new Date(d);
-          endBlockStart.setHours(endH, endM, endS, 0);
-          const endBlockEnd = new Date(d);
-          endBlockEnd.setHours(23, 59, 59, 999);
+          // Second block: shift end to 24:00
+          const endTimeStr = `${isoDate}T${item.end}Z`;
+          const endBlockStart = new Date(endTimeStr);
+          const endBlockEnd = new Date(`${isoDate}T23:59:59.999Z`);
 
           results.push({
             resourceId: item.resourceID,
@@ -1430,7 +1197,7 @@ function generateSplitEvents(testData, inputStart, inputEnd) {
       }
     });
   }
-
+  console.log(results);
   return results;
 }
 
@@ -1440,7 +1207,6 @@ window.Model = {
   handleFilterFetch,
   handleGetTimeoffWithoutSet,
   handleEventFetch,
-  fetchCalendarData,
   loadHolidayDates,
   bookableResourceCategoryHandler,
   mapServiceType: (data) => mapServiceType(data),

@@ -66,6 +66,9 @@ async function switchTab(tab) {
         mapOverIntialData
       );
 
+      // Create the Work hour pattern lookup
+      await window.Model.buildResourcePatterns();
+
       // 2. Fetch events (this waits for any calendar batch work if needed)
       await window.Model.handleEventFetch();
 
@@ -172,6 +175,7 @@ async function refreshData() {
         getBookableResources,
         mapOverIntialData
       );
+      await window.Model.buildResourcePatterns();
       await window.Model.handleEventFetch();
 
       const filteredResources = window.Model.applyAllFilters();
