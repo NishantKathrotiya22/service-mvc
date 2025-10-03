@@ -1132,10 +1132,9 @@ async function buildResourcePatterns() {
 
 // Function : that Gernates BG Events For Work Non working hours from pattern
 function generateSplitEvents(data, inputStart, inputEnd) {
-  if (!Array.isArray(data) || data.length === 0) {
+  if (Array.isArray(data) && data?.length === 0) {
     return [];
   }
-
   const dayMap = {
     SU: 0,
     MO: 1,
@@ -1148,28 +1147,29 @@ function generateSplitEvents(data, inputStart, inputEnd) {
 
   const results = [];
 
+  // Convert input start/end to Date objects
   const startDate = new Date(inputStart);
   const endDate = new Date(inputEnd);
 
-  for (
-    let d = new Date(startDate);
-    d <= endDate;
-    d.setUTCDate(d.getUTCDate() + 1)
-  ) {
-    const currentDay = d.getUTCDay(); // Use UTC day
+  // Loop over all days in the input range
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const currentDay = d.getDay(); // 0 (Sunday) - 6 (Saturday)
 
     data.forEach((item) => {
       const effectiveStart = new Date(item.effectiveintervalstart);
       const effectiveEnd = new Date(item.effectiveintervalend);
 
+      // Check if current date is within the effective interval
       if (d >= effectiveStart && d <= effectiveEnd) {
+        // Check if the current day is in the allowed days
         if (item.days.some((day) => dayMap[day] === currentDay)) {
-          const isoDate = d.toISOString().split("T")[0]; // YYYY-MM-DD
+          // Create the two event blocks
 
-          // First block: 00:00 to shift start
-          const startTimeStr = `${isoDate}T${item.start}Z`;
-          const startBlockEnd = new Date(startTimeStr);
-          const startBlockStart = new Date(`${isoDate}T00:00:00Z`);
+          // 1. From 00:00 to start time
+          const [startH, startM, startS] = item.start.split(":").map(Number);
+          const startBlockStart = new Date(d);
+          const startBlockEnd = new Date(d);
+          startBlockEnd.setHours(startH, startM, startS, 0);
 
           results.push({
             resourceId: item.resourceID,
@@ -1180,10 +1180,12 @@ function generateSplitEvents(data, inputStart, inputEnd) {
             display: "background",
           });
 
-          // Second block: shift end to 24:00
-          const endTimeStr = `${isoDate}T${item.end}Z`;
-          const endBlockStart = new Date(endTimeStr);
-          const endBlockEnd = new Date(`${isoDate}T23:59:59.999Z`);
+          // 2. From end time to 24:00 (i.e., 23:59:59.999)
+          const [endH, endM, endS] = item.end.split(":").map(Number);
+          const endBlockStart = new Date(d);
+          endBlockStart.setHours(endH, endM, endS, 0);
+          const endBlockEnd = new Date(d);
+          endBlockEnd.setHours(23, 59, 59, 999);
 
           results.push({
             resourceId: item.resourceID,
@@ -1197,7 +1199,7 @@ function generateSplitEvents(data, inputStart, inputEnd) {
       }
     });
   }
-  console.log(results);
+
   return results;
 }
 
