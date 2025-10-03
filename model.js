@@ -842,24 +842,34 @@ function mapCalendarEvents(calendarData) {
 
     // Pre-work gap
     if (dayStart < workStart) {
-      events.push({
+      let event = {
         resourceId: calenderIds[item?.QueriedCalendarId],
         start: dayStart,
         end: workStart,
         type: "gap",
         display: "background",
-      });
+      };
+      if (calenderRuleIds.includes(item?.CalendarId)) {
+        event.className = ["ec-bg-event-edited"];
+        console.log("event editd for ", item?.CalendarId);
+      }
+      events.push(event);
     }
 
     // Post-work gap
     if (workEnd < dayEnd) {
-      events.push({
+      let event = {
         resourceId: calenderIds[item?.QueriedCalendarId],
         start: workEnd,
         end: dayEnd,
         type: "gap",
         display: "background",
-      });
+      };
+      if (calenderRuleIds.includes(item?.CalendarId)) {
+        event.className = ["ec-bg-event-edited"];
+        console.log("event editd for ", item?.CalendarId);
+      }
+      events.push(event);
     }
 
     return events;
@@ -887,6 +897,7 @@ async function handleEventFetch() {
       try {
         console.log("Starting With Fetching Calnder Rules");
         const calenderIDS = await fetchCalendarRules();
+        calenderRuleIds = calenderIDS;
         console.log("Afetr all the Things", calenderIDS);
         console.log("Done with Fetching Calnder Rules");
         const calendarData = await fetchCalendarData();
