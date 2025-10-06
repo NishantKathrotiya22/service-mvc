@@ -1151,12 +1151,8 @@ function generateSplitEvents(data, inputStart, inputEnd) {
   const startDate = new Date(inputStart);
   const endDate = new Date(inputEnd);
 
-  for (
-    let d = new Date(startDate);
-    d <= endDate;
-    d.setUTCDate(d.getUTCDate() + 1)
-  ) {
-    const currentDay = d.getUTCDay(); // Use UTC day
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const currentDay = d.getDay(); // Local day (Sunday = 0, Monday = 1, etc.)
 
     data.forEach((item) => {
       const effectiveStart = new Date(item.effectiveintervalstart);
@@ -1166,10 +1162,9 @@ function generateSplitEvents(data, inputStart, inputEnd) {
         if (item.days.some((day) => dayMap[day] === currentDay)) {
           const isoDate = d.toISOString().split("T")[0]; // YYYY-MM-DD
 
-          // First block: 00:00 to shift start
-          const startTimeStr = `${isoDate}T${item.start}Z`;
-          const startBlockEnd = new Date(startTimeStr);
-          const startBlockStart = new Date(`${isoDate}T00:00:00Z`);
+          // First block: from 00:00 to item.start
+          const startBlockStart = new Date(isoDate + "T00:00:00");
+          const startBlockEnd = new Date(isoDate + "T" + item.start); // Item's start time
 
           results.push({
             resourceId: item.resourceID,
@@ -1180,10 +1175,9 @@ function generateSplitEvents(data, inputStart, inputEnd) {
             display: "background",
           });
 
-          // Second block: shift end to 24:00
-          const endTimeStr = `${isoDate}T${item.end}Z`;
-          const endBlockStart = new Date(endTimeStr);
-          const endBlockEnd = new Date(`${isoDate}T23:59:59.999Z`);
+          // Second block: from item.end to 23:59:59.999
+          const endBlockStart = new Date(isoDate + "T" + item.end); // Item's end time
+          const endBlockEnd = new Date(isoDate + "T23:59:59.999");
 
           results.push({
             resourceId: item.resourceID,
@@ -1197,7 +1191,6 @@ function generateSplitEvents(data, inputStart, inputEnd) {
       }
     });
   }
-  console.log(results);
   return results;
 }
 
