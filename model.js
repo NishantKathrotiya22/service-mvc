@@ -1152,7 +1152,7 @@ function generateSplitEvents(data, inputStart, inputEnd) {
   const endDate = new Date(inputEnd);
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-    const currentDay = d.getDay(); // Local day (Sunday = 0, Monday = 1, etc.)
+    const currentDay = d.getDay();
 
     data.forEach((item) => {
       const effectiveStart = new Date(item.effectiveintervalstart);

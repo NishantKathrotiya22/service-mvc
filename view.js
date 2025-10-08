@@ -1040,7 +1040,6 @@ function createCalendar() {
     durationEditable: false,
     eventStartEditable: false,
     slotEventOverlap: true,
-    highlightedDates: window.Model.getHolidayDates(),
 
     dayHeaderFormat: parseDate,
     eventContent: renderEventDetails,
@@ -1061,6 +1060,24 @@ function createCalendar() {
   applyBtn();
 }
 
+function showHolidays() {
+  if (!window.ecCalendar) {
+    return;
+  }
+
+  window.ecCalendar.setOption(
+    "highlightedDates",
+    window.Model.getHolidayDates()
+  );
+}
+
+function hideHolidays() {
+  if (!window.ecCalendar) {
+    return;
+  }
+
+  window.ecCalendar.setOption("highlightedDates", []);
+}
 // Expose view functions for controller
 window.View = {
   createCalendar,
@@ -1090,4 +1107,6 @@ window.View = {
       window.ecCalendar.setOption("resources", resources);
     }
   },
+  showHolidays,
+  hideHolidays,
 };

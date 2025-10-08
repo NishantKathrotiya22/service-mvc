@@ -77,6 +77,7 @@ async function switchTab(tab) {
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
+      window.View.hideHolidays();
     } else if (tab === "leave") {
       // Ensure calendar view date change does not trigger duplicate fetch
       __suppressDateChangeOnce = true;
@@ -98,6 +99,7 @@ async function switchTab(tab) {
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
+      window.View.showHolidays();
     }
   } catch (error) {
     console.error(`Error switching to ${tab} tab:`, error);
