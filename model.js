@@ -1148,23 +1148,36 @@ function generateSplitEvents(data, inputStart, inputEnd) {
 
   const results = [];
 
-  const startDate = new Date(inputStart);
-  const endDate = new Date(inputEnd);
+  // Extract date part only to avoid timezone issues
+  const startDateStr = inputStart.split("T")[0];
+  const endDateStr = inputEnd.split("T")[0];
+
+  const startDate = new Date(startDateStr + "T00:00:00");
+  const endDate = new Date(endDateStr + "T00:00:00");
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
     const currentDay = d.getDay();
+    const isoDate = d.toISOString().split("T")[0]; // YYYY-MM-DD
 
     data.forEach((item) => {
-      const effectiveStart = new Date(item.effectiveintervalstart);
-      const effectiveEnd = new Date(item.effectiveintervalend);
+      // Extract date parts directly from the strings
+      const effectiveStartStr = item.effectiveintervalstart
+        ? item.effectiveintervalstart.split("T")[0]
+        : null;
+      const effectiveEndStr = item.effectiveintervalend
+        ? item.effectiveintervalend.split("T")[0]
+        : null;
 
-      if (d >= effectiveStart && d <= effectiveEnd) {
+      // Compare date strings directly (YYYY-MM-DD format compares correctly as strings)
+      const isWithinEffectiveRange =
+        (!effectiveStartStr || isoDate >= effectiveStartStr) &&
+        (!effectiveEndStr || isoDate < effectiveEndStr);
+
+      if (isWithinEffectiveRange) {
         if (item.days.some((day) => dayMap[day] === currentDay)) {
-          const isoDate = d.toISOString().split("T")[0]; // YYYY-MM-DD
-
           // First block: from 00:00 to item.start
           const startBlockStart = new Date(isoDate + "T00:00:00");
-          const startBlockEnd = new Date(isoDate + "T" + item.start); // Item's start time
+          const startBlockEnd = new Date(isoDate + "T" + item.start);
 
           results.push({
             resourceId: item.resourceID,
@@ -1176,7 +1189,7 @@ function generateSplitEvents(data, inputStart, inputEnd) {
           });
 
           // Second block: from item.end to 23:59:59.999
-          const endBlockStart = new Date(isoDate + "T" + item.end); // Item's end time
+          const endBlockStart = new Date(isoDate + "T" + item.end);
           const endBlockEnd = new Date(isoDate + "T23:59:59.999");
 
           results.push({
