@@ -1,6 +1,6 @@
 // model.js
 // Model: Handles data fetching, mapping, state management, and business logic
-
+console.log("v5");
 // Global State
 let filterState = {
   region: null,
@@ -1148,23 +1148,77 @@ function generateSplitEvents(data, inputStart, inputEnd) {
 
   const results = [];
 
-  const startDate = new Date(inputStart);
-  const endDate = new Date(inputEnd);
+  // Parse input dates without timezone conversion
+  const startDate = new Date(inputStart.split("T")[0] + "T00:00:00");
+  const endDate = new Date(inputEnd.split("T")[0] + "T23:59:59");
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
     const currentDay = d.getDay();
 
     data.forEach((item) => {
-      const effectiveStart = new Date(item.effectiveintervalstart);
-      const effectiveEnd = new Date(item.effectiveintervalend);
+      // Skip if no effective start date
+      if (!item.effectiveintervalstart) return;
+
+      // Parse effective start date without timezone conversion
+      const effectiveStart = new Date(
+        item.effectiveintervalstart.split("T")[0] + "T00:00:00"
+      );
+
+      // Handle effectiveintervalend with null check and time-based inclusive/exclusive logic
+      let effectiveEnd;
+      if (!item.effectiveintervalend) {
+        // If no end date, assume far future
+        effectiveEnd = new Date("9999-12-30T23:59:59");
+      } else {
+        // Extract the time component to determine if end date is inclusive or exclusive
+        // to handle cases like 00:00:00 (exclusive) vs 23:59:59 (inclusive)
+        const effectiveEndTime = item.effectiveintervalend.split("T")[1];
+
+        const isEndExclusive =
+          effectiveEndTime && effectiveEndTime.startsWith("00:00:00");
+
+        const effectiveEndDate = new Date(
+          item.effectiveintervalend.split("T")[0] + "T00:00:00"
+        );
+
+        if (isEndExclusive) {
+          // If time is 00:00:00, the end date is exclusive (subtract 1 day)
+          effectiveEnd = new Date(effectiveEndDate);
+          effectiveEnd.setDate(effectiveEnd.getDate() - 1);
+          effectiveEnd.setHours(23, 59, 59, 999);
+        } else {
+          // If time is 23:59:59 or any other time, include the full day
+          effectiveEnd = new Date(
+            item.effectiveintervalend.split("T")[0] + "T23:59:59.999"
+          );
+        }
+      }
 
       if (d >= effectiveStart && d <= effectiveEnd) {
         if (item.days.some((day) => dayMap[day] === currentDay)) {
-          const isoDate = d.toISOString().split("T")[0]; // YYYY-MM-DD
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          const isoDate = `${year}-${month}-${day}`;
 
-          // First block: from 00:00 to item.start
-          const startBlockStart = new Date(isoDate + "T00:00:00");
-          const startBlockEnd = new Date(isoDate + "T" + item.start); // Item's start time
+          // Calculate start time from offset (in minutes)
+          const startMinutes = item.offset || 0;
+          const startHours = Math.floor(startMinutes / 60);
+          const startMins = startMinutes % 60;
+
+          // Calculate end time from offset + duration (in minutes)
+          const duration = item.duration || 0;
+          const endMinutes = startMinutes + duration;
+          const endHours = Math.floor(endMinutes / 60);
+          const endMins = endMinutes % 60;
+
+          // First block: from 00:00 to start time (offset)
+          const startBlockStart = new Date(`${isoDate}T00:00:00`);
+          const startBlockEnd = new Date(
+            `${isoDate}T${String(startHours).padStart(2, "0")}:${String(
+              startMins
+            ).padStart(2, "0")}:00`
+          );
 
           results.push({
             resourceId: item.resourceID,
@@ -1175,9 +1229,13 @@ function generateSplitEvents(data, inputStart, inputEnd) {
             display: "background",
           });
 
-          // Second block: from item.end to 23:59:59.999
-          const endBlockStart = new Date(isoDate + "T" + item.end); // Item's end time
-          const endBlockEnd = new Date(isoDate + "T23:59:59.999");
+          // Second block: from end time (offset + duration) to 23:59:59.999
+          const endBlockStart = new Date(
+            `${isoDate}T${String(endHours).padStart(2, "0")}:${String(
+              endMins
+            ).padStart(2, "0")}:00`
+          );
+          const endBlockEnd = new Date(`${isoDate}T23:59:59.999`);
 
           results.push({
             resourceId: item.resourceID,
@@ -1193,7 +1251,6 @@ function generateSplitEvents(data, inputStart, inputEnd) {
   }
   return results;
 }
-
 // Expose model functions for controller
 window.Model = {
   handleGetResorces,
