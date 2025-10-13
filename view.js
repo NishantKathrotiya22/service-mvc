@@ -3,40 +3,55 @@
 
 // Render Functions
 function parseDate(date) {
-  const d = new Date(date);
-
-  if (isNaN(d.getTime())) {
-    throw new Error("Invalid date input");
+  console.log("raw date", date);
+  // Ensure valid date
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return { html: "<div>Invalid Date</div>" };
   }
 
-  // Use a local reference date (15 September 2025)
-  const referenceDate = new Date(2025, 8, 15); // month is 0-indexed
+  // Use local timezone (calendar passes dates in local time)
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
 
-  // Compute difference based on local midnight, not UTC
-  const localStartOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const timeDiff = localStartOfDay.getTime() - referenceDate.getTime();
-  const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-
-  // Determine week parity
-  const quotient = Math.floor(daysDiff / 7);
-  const modResult = ((quotient % 2) + 2) % 2;
-  const parity = modResult + 1;
-
-  // Get weekday and formatted local date
-  const weekday = new Intl.DateTimeFormat("en-US", {
+  // Format weekday name
+  const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
-  }).format(d);
+  });
+  const weekday = weekdayFormatter.format(date);
 
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
+  // Format date components with leading zeros
+  const dayStr = String(day).padStart(2, "0");
+  const monthStr = String(month + 1).padStart(2, "0");
 
-  const label = `${weekday} - ${day}-${month}-${year} (Week-${parity})`;
+  // Calculate week parity using local timezone at midnight
+  // This ensures consistency with how the calendar displays dates
+  const currentDateLocal = new Date(year, month, day).setHours(0, 0, 0, 0);
+  const referenceDateLocal = new Date(2025, 8, 15).setHours(0, 0, 0, 0); // September 15, 2025
+  const currentDateUtc = Date.UTC(year, month, day);
+  const referenceDateUtc = Date.UTC(2025, 8, 15);
 
-  // Week color map
-  const colorMap = { 1: "#4F7AB3", 2: "#225f27ff" };
-  const color = colorMap[parity] || "#000000";
+  // Calculate difference in days from reference date
+  const daysDiff = Math.floor(
+    (currentDateUtc - referenceDateUtc) / (1000 * 60 * 60 * 24)
+  );
+  // Apply Excel formula logic
+  const quotient = Math.floor(daysDiff / 7);
+  const modResult = ((quotient % 2) + 2) % 2; // Normalize for negative numbers
+  const weekParity = modResult + 1; // Results in 1 or 2
 
+  // Build display label
+  const label = `${weekday} - ${dayStr}-${monthStr}-${year} (Week-${weekParity})`;
+
+  // Color mapping for week parity
+  const colorMap = {
+    1: "#4F7AB3", // Blue for Week-1
+    2: "#225f27ff", // Green for Week-2
+  };
+
+  const color = colorMap[weekParity] || "#000000";
+
+  // Return Content object with HTML
   return {
     html: `<div style="color: ${color}; padding: 4px 8px; border-radius: 4px;">${label}</div>`,
   };
