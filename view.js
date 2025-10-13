@@ -3,38 +3,39 @@
 
 // Render Functions
 function parseDate(date) {
-  const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-  });
-  const weekday = weekdayFormatter.format(date);
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-
   const d = new Date(date);
 
   if (isNaN(d.getTime())) {
     throw new Error("Invalid date input");
   }
 
-  const referenceDate = new Date(2025, 8, 15);
+  // Use a local reference date (15 September 2025)
+  const referenceDate = new Date(2025, 8, 15); // month is 0-indexed
 
-  const timeDiff = d.getTime() - referenceDate.getTime();
+  // Compute difference based on local midnight, not UTC
+  const localStartOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const timeDiff = localStartOfDay.getTime() - referenceDate.getTime();
   const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
 
+  // Determine week parity
   const quotient = Math.floor(daysDiff / 7);
   const modResult = ((quotient % 2) + 2) % 2;
+  const parity = modResult + 1;
 
-  let parity = modResult + 1;
+  // Get weekday and formatted local date
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+  }).format(d);
 
-  let label = `${weekday} - ${day}-${month}-${year} (Week-${parity})`;
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
 
-  const colorMap = {
-    1: "#4F7AB3",
-    2: "#225f27ff",
-  };
+  const label = `${weekday} - ${day}-${month}-${year} (Week-${parity})`;
 
-  const color = colorMap[parity] || "#00000";
+  // Week color map
+  const colorMap = { 1: "#4F7AB3", 2: "#225f27ff" };
+  const color = colorMap[parity] || "#000000";
 
   return {
     html: `<div style="color: ${color}; padding: 4px 8px; border-radius: 4px;">${label}</div>`,
@@ -153,12 +154,10 @@ function renderEventDetails(arg) {
   arg.event.extendedProps.duration = durationStr;
   const tooltipHtml = renderTooltipContent(arg).replace(/\n/g, "");
   let eventClass = "ec-event-active";
-
   if (currentTab === "leave") {
     const resourceId = arg?.event?.resourceIds?.[0] ?? arg?.event?.id;
     eventClass = window.Model.getEventClassName(start, end, resourceId);
   }
-
   if (
     eventClass === "ec-event-active" &&
     arg?.event?.extendedProps?.placeholder

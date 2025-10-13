@@ -43,6 +43,7 @@ let calendarDataFetched = false;
 
 let timeOffLookup = {};
 let calenderIds = {};
+let timeOffEvents = [];
 //Object that contains all the work hours pattern that has (BYDAY in pattern)
 let workHoursPattern = [];
 
@@ -76,7 +77,34 @@ const leaveTypeClassMap = {
   285930025: "ec-event-pink",
   285930026: "ec-event-pink",
 };
-
+const bgLevaTypeMap = {
+  285930013: "bg-event-yellow",
+  285930014: "bg-event-yellow",
+  285930012: "bg-event-yellow",
+  285930015: "bg-event-yellow",
+  285930027: "bg-event-yellow",
+  285930028: "bg-event-yellow",
+  285930003: "bg-event-pink",
+  285930023: "bg-event-pink",
+  285930024: "bg-event-pink",
+  285930004: "bg-event-pink",
+  285930005: "bg-event-pink",
+  285930029: "bg-event-pink",
+  285930006: "bg-event-pink",
+  285930007: "bg-event-pink",
+  285930008: "bg-event-pink",
+  285930010: "bg-event-pink",
+  285930011: "bg-event-yellow",
+  285930016: "bg-event-pink",
+  285930018: "bg-event-pink",
+  285930017: "bg-event-pink",
+  285930019: "bg-event-pink",
+  285930020: "bg-event-pink",
+  285930021: "bg-event-pink",
+  285930000: "bg-event-pink",
+  285930025: "bg-event-pink",
+  285930026: "bg-event-pink",
+};
 // Fetch Functions (CRM API calls - parameters unchanged)
 function getTerritory() {
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
@@ -95,7 +123,7 @@ function getCareType() {
 function getBookableResources() {
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
     "bookableresource",
-    "?$select=name,resourcetype,_calendarid_value&$expand=UserId($select=entityimage_url),msdyn_bookableresource_msdyn_resourceterritory_Resource($select=msdyn_resourceterritoryid,msdyn_name,_msdyn_resource_value,_msdyn_territory_value,statecode)"
+    "?$filter=statecode%20eq%200&$select=name,resourcetype,_calendarid_value&$expand=UserId($select=entityimage_url),msdyn_bookableresource_msdyn_resourceterritory_Resource($select=msdyn_resourceterritoryid,msdyn_name,_msdyn_resource_value,_msdyn_territory_value,statecode)"
   );
 }
 
@@ -683,6 +711,13 @@ async function handleEventFetch() {
       }
     }
 
+    if (currentTab === "leave") {
+      let timeOffs = await handleTimeOffRequest();
+      console.log("timeOffs", timeOffs);
+      console.log("timeOffEvents", timeOffEvents);
+      allEvents.push(...timeOffs);
+    }
+
     // 2. Always fetch booking events
     const bookingResponse = await getAgreementBookingDatesBetween();
     const bookingEvents = mapBookingEvents(bookingResponse);
@@ -1250,6 +1285,39 @@ function generateSplitEvents(data, inputStart, inputEnd) {
     });
   }
   return results;
+}
+
+function gernrateBgTimeOffEvents(events) {
+  if (events && events.length === 0) return [];
+
+  const mappedEvents = events.map((event) => {
+    const start = new Date(event?.msdyn_starttime);
+    const end = new Date(event?.msdyn_endtime);
+    const className = bgLevaTypeMap[event?.vel_leavetype] || "ec-event-yellow";
+
+    return {
+      resourceId: event?._msdyn_resource_value,
+      start,
+      end,
+      display: "background",
+      type: "gap",
+      classNames: [className],
+    };
+  });
+  return mappedEvents;
+}
+async function handleTimeOffRequest() {
+  timeOffEvents = [];
+  const timeOffResponse = await getTimeOffRequests();
+  console.log("timeOffResponse", timeOffResponse);
+  if (!timeOffResponse?.entities) return;
+
+  const genratedTimeOffEvents = await gernrateBgTimeOffEvents(
+    timeOffResponse?.entities
+  );
+
+  timeOffEvents = genratedTimeOffEvents;
+  return genratedTimeOffEvents;
 }
 // Expose model functions for controller
 window.Model = {
