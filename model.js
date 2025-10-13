@@ -1291,14 +1291,36 @@ function gernrateBgTimeOffEvents(events) {
   if (events && events.length === 0) return [];
 
   const mappedEvents = events.map((event) => {
-    const start = new Date(event?.msdyn_starttime);
-    const end = new Date(event?.msdyn_endtime);
+    const localStart = new Date(event?.msdyn_starttime);
+    const localEnd = new Date(event?.msdyn_endtime);
+
+    // Create new dates representing start of the day (00:00) and end of day (23:59:59.999)
+    const startOfDay = new Date(
+      localStart.getFullYear(),
+      localStart.getMonth(),
+      localStart.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+
+    const endOfDay = new Date(
+      localEnd.getFullYear(),
+      localEnd.getMonth(),
+      localEnd.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+
     const className = bgLevaTypeMap[event?.vel_leavetype] || "ec-event-yellow";
 
     return {
       resourceId: event?._msdyn_resource_value,
-      start,
-      end,
+      start: startOfDay,
+      end: endOfDay,
       display: "background",
       type: "gap",
       classNames: [className],
