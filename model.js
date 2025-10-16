@@ -273,16 +273,42 @@ function getAdjustedDateRangeFromCalendar() {
   };
 }
 
+// Old timeoff look up that only takes leave time for conflicts (not entire day)
+// function calculateLookupData(data) {
+//   timeOffLookup = {};
+//   data.forEach((leave) => {
+//     const resourceId = leave?.id;
+//     if (!timeOffLookup[resourceId]) {
+//       timeOffLookup[resourceId] = [];
+//     }
+//     timeOffLookup[resourceId].push({
+//       start: new Date(leave?.extendedProps?.startTime),
+//       end: new Date(leave?.extendedProps?.endTime),
+//       leaveType: leave?.extendedProps?.leaveType,
+//     });
+//   });
+// }
+
+// new timeoff lookyp that count entire start and end day for conflict event color
+
 function calculateLookupData(data) {
   timeOffLookup = {};
+
   data.forEach((leave) => {
     const resourceId = leave?.id;
     if (!timeOffLookup[resourceId]) {
       timeOffLookup[resourceId] = [];
     }
+
+    const start = new Date(leave?.extendedProps?.startTime);
+    start.setHours(0, 0, 0, 0); // Start of the day
+
+    const end = new Date(leave?.extendedProps?.endTime);
+    end.setHours(23, 59, 59, 999); // End of the day
+
     timeOffLookup[resourceId].push({
-      start: new Date(leave?.extendedProps?.startTime),
-      end: new Date(leave?.extendedProps?.endTime),
+      start,
+      end,
       leaveType: leave?.extendedProps?.leaveType,
     });
   });
