@@ -86,7 +86,7 @@ const bgLevaTypeMap = {
   285930027: "bg-event-yellow",
   285930028: "bg-event-yellow",
   285930003: "bg-event-pink",
-  285930009: "ec-event-pink",
+  285930009: "bg-event-pink",
   285930023: "bg-event-pink",
   285930024: "bg-event-pink",
   285930004: "bg-event-pink",

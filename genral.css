@@ -1,0 +1,173 @@
+:root {
+  /* === Base Colors === */
+  --bg-main: #f5f5f5;
+  --bg-white: #ffffff;
+  --text-toolbar: rgba(0, 0, 0, 0.6);
+  --text-light: #ffffff;
+  --text-dark: #000000;
+  --text-light-1: #979797;
+  --text-light-2: #d7d7d7;
+  --text-resources: #606263;
+
+  /* === Filter === */
+  --filter-active-color: #6693c9;
+
+  /* === Timeline General === */
+  --timeline-bg: #d0dded;
+  --timeline-text: #6693c9;
+
+  /* === Timeline Yellow Variant === */
+  --timeline-yellow-text: #ffbb00;
+  --timeline-yellow-bg: #f9e398;
+  --timeline-container-yellow-bg: #f9f1d0;
+
+  /* === No Leave Timeline (Blue Variant) === */
+  --no-leave-bg: #b1d7f3;
+  --no-leave-text: #1181d6;
+  --no-leave-border-color: #3a6fa3;
+
+  /* === Pink Variant === */
+  --timeline-pink-text: #fa4c69;
+  --timeline-pink-bg: #fb8194;
+  --timeline-container-pink-bg: #fcd0d5;
+
+  /* === Gray Variant === */
+  --timeline-gray-text: #979797;
+  --timeline-gray-bg: #cfcfcf;
+  --timeline-container-gray-bg: #d7d7d7;
+
+  /* === Purple Variant === */
+  --timeline-purple-text: #9b59b6;
+  --timeline-purple-bg: #c39bd3;
+  --timeline-container-purple-bg: #e8daef;
+
+/* === BG Events Color === */
+    --bg-event-color: #CCCCFF;
+    --bg-edited-event-color:#e97132:
+
+  /* === Scroll and Borders === */
+  --scrollbar-color: #dce6f3;
+  --border-color: rgba(151, 151, 151, 0.15);
+  --input-border-color: #d7d7d7;
+
+  --btn-bg-color: #027bff;
+
+  --scrollbar-color: #006eff;
+}
+
+.dark {
+  --bg-main: #1e1e1e;
+  --text-dark: #ffffff;
+  --text-toolbar: rgba(0, 0, 0, 0.6);
+  --text-light-1: #c4c4c4;
+  --text-light-2: #888888;
+  --text-resources: #606263;
+
+  --filter-active-color: #8ab4f8;
+
+  --timeline-bg: #2a3b4d;
+  --timeline-text: #8ab4f8;
+
+  --timeline-yellow-bg: #5a4b26;
+  --timeline-yellow-text: #ffd266;
+
+  --no-leave-bg: #b1d7f3;
+  --no-leave-text: #1181d6;
+  --no-leave-border-color: #3a6fa3;
+
+  --sick-leave-bg: rgba(250, 102, 121, 0.2);
+  --sick-leave-active-bg: #fa6679;
+  --sick-leave-task-bg: #fa4c69;
+
+  --no-conflict-sick-leave-bg: #444444;
+  --no-conflict-sick-leave-text: #aaaaaa;
+
+  /* === Purple Variant (Dark Mode) === */
+  --timeline-purple-text: #bb86fc;
+  --timeline-purple-bg: #4a2e5a;
+  --timeline-container-purple-bg: #3a2444;
+
+/* === BG Events Color === */
+    --bg-event-color: #CCCCFF;
+    --bg-edited-event-color:#e97132:
+
+  --scrollbar-color: #2f3b4c;
+  --border-color: rgba(200, 200, 200, 0.1);
+}
+
+.temp {
+  background-color: #1181d6;
+  height: 1rem;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  /* 10/16 = 0.625 = 62.5%   (1rem = 10px) */
+  font-size: 62.5%;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body,
+button,
+input,
+select,
+table,
+textarea {
+  /* TODO: Switch to use this syntax once relatvive font sizes(e.g. 200%, larger) 
+        are removed or set thier own line height, since they don't work well with the default line height */
+  /* font: @DefaultFont; */
+  font-style: normal;
+  font-variant: normal;
+  font-weight: normal;
+  font-size: 14px;
+  font-family: "Segoe UI", "Segoe UI Web (West European)", "Segoe UI",
+    -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif !important;
+}
+
+.grid-container {
+  font-style: normal;
+  font-variant: normal;
+  font-weight: normal;
+  font-size: 14px;
+  font-family: "Segoe UI", "Segoe UI Web (West European)", "Segoe UI",
+    -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif !important;
+}
+
+.inner-padding {
+  padding: 0 1.7rem 0 2.2rem;
+}
+
+.p-2 {
+  padding: 0 2rem;
+}
+
+.btn {
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  font-family: "Segoe UI", "Segoe UI Web (West European)", "Segoe UI",
+    -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif !important;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn:hover {
+  color: var(--text-dark);
+}
+
+.ec,
+#ec {
+  height: 100%;
+}
