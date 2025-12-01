@@ -163,9 +163,8 @@ function getAgreementBookingDatesBetween() {
       endDate,
     "&$expand=",
     "msdyn_resource($select=name),",
-    "msdyn_bookingsetup($select=sog_placeholdertypecode,msdyn_agreementbookingsetupid,msdyn_estimatedduration,_ang_incidenttype_value),",
-    "msdyn_workorder($select=msdyn_workorderid,msdyn_city,msdyn_country,msdyn_postalcode,_msdyn_serviceterritory_value,msdyn_stateorprovince,msdyn_address1,msdyn_address2,msdyn_address3,msdyn_systemstatus),",
-    "msdyn_bookingsetup($select=sog_selectedincidentservices)",
+    "msdyn_bookingsetup($select=msdyn_agreementbookingsetupid,msdyn_estimatedduration,_ang_incidenttype_value,_vel_serviceaccount_value;$expand=vel_ServiceAccount($select=name)),",
+    "msdyn_workorder($select=msdyn_workorderid,msdyn_city,msdyn_country,msdyn_postalcode,_msdyn_serviceterritory_value,msdyn_stateorprovince,msdyn_address1,msdyn_address2,msdyn_address3)",
   ].join("");
 
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
@@ -687,7 +686,8 @@ function mapBookingEvents(response) {
       extendedProps: {
         bookingID: event?._msdyn_agreement_value,
         employeeID: event?.msdyn_name,
-        employeeName: event?.msdyn_resource?.name ?? "N/A",
+        employeeName:
+          event?.msdyn_bookingsetup?.vel_ServiceAccount?.name ?? "N/A",
         address: addressParts,
         suburb: event?.msdyn_workorder?.msdyn_city ?? "N/A",
         bookingStatus: statusMap[event?.msdyn_status] ?? "Unknown",
@@ -1055,7 +1055,7 @@ async function buildResourcePatterns() {
   const parentCalendarIds = Object.keys(calenderIds || {}); // calenderIds maps parentCalendarId -> resourceId
   if (!parentCalendarIds || parentCalendarIds.length === 0) return [];
 
-  const batchSize = 40; // CRM recommended batch size
+  const batchSize = 100; // CRM recommended batch size
   const output = [];
 
   const parentChunks = chunkArray(parentCalendarIds, batchSize);
