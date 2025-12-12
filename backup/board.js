@@ -163,8 +163,9 @@ function getAgreementBookingDatesBetween() {
       endDate,
     "&$expand=",
     "msdyn_resource($select=name),",
-    "msdyn_bookingsetup($select=msdyn_agreementbookingsetupid,msdyn_estimatedduration,_ang_incidenttype_value,_vel_serviceaccount_value;$expand=vel_ServiceAccount($select=name)),",
-    "msdyn_workorder($select=msdyn_workorderid,msdyn_city,msdyn_country,msdyn_postalcode,_msdyn_serviceterritory_value,msdyn_stateorprovince,msdyn_address1,msdyn_address2,msdyn_address3)",
+    "msdyn_bookingsetup($select=sog_placeholdertypecode,msdyn_agreementbookingsetupid,msdyn_estimatedduration,_ang_incidenttype_value),",
+    "msdyn_workorder($select=msdyn_workorderid,msdyn_city,msdyn_country,msdyn_postalcode,_msdyn_serviceterritory_value,msdyn_stateorprovince,msdyn_address1,msdyn_address2,msdyn_address3,msdyn_systemstatus),",
+    "msdyn_bookingsetup($select=sog_selectedincidentservices)",
   ].join("");
 
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
@@ -686,8 +687,7 @@ function mapBookingEvents(response) {
       extendedProps: {
         bookingID: event?._msdyn_agreement_value,
         employeeID: event?.msdyn_name,
-        employeeName:
-          event?.msdyn_bookingsetup?.vel_ServiceAccount?.name ?? "N/A",
+        employeeName: event?.msdyn_resource?.name ?? "N/A",
         address: addressParts,
         suburb: event?.msdyn_workorder?.msdyn_city ?? "N/A",
         bookingStatus: statusMap[event?.msdyn_status] ?? "Unknown",
@@ -1283,14 +1283,14 @@ function generateSplitEvents(data, inputStart, inputEnd) {
             ).padStart(2, "0")}:00`
           );
 
-          // results.push({
-          //   resourceId: item.resourceID,
-          //   start: startBlockStart,
-          //   end: startBlockEnd,
-          //   createdon: item.createdon,
-          //   type: "gap",
-          //   display: "background",
-          // });
+          results.push({
+            resourceId: item.resourceID,
+            start: startBlockStart,
+            end: startBlockEnd,
+            createdon: item.createdon,
+            type: "gap",
+            display: "background",
+          });
 
           // Second block: from end time (offset + duration) to 23:59:59.999
           const endBlockStart = new Date(
@@ -1300,19 +1300,10 @@ function generateSplitEvents(data, inputStart, inputEnd) {
           );
           const endBlockEnd = new Date(`${isoDate}T23:59:59.999`);
 
-          // results.push({
-          //   resourceId: item.resourceID,
-          //   start: endBlockStart,
-          //   end: endBlockEnd,
-          //   createdon: item.createdon,
-          //   type: "gap",
-          //   display: "background",
-          // });
-
           results.push({
             resourceId: item.resourceID,
-            start: startBlockEnd,
-            end: endBlockStart,
+            start: endBlockStart,
+            end: endBlockEnd,
             createdon: item.createdon,
             type: "gap",
             display: "background",

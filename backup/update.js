@@ -1283,14 +1283,14 @@ function generateSplitEvents(data, inputStart, inputEnd) {
             ).padStart(2, "0")}:00`
           );
 
-          // results.push({
-          //   resourceId: item.resourceID,
-          //   start: startBlockStart,
-          //   end: startBlockEnd,
-          //   createdon: item.createdon,
-          //   type: "gap",
-          //   display: "background",
-          // });
+          results.push({
+            resourceId: item.resourceID,
+            start: startBlockStart,
+            end: startBlockEnd,
+            createdon: item.createdon,
+            type: "gap",
+            display: "background",
+          });
 
           // Second block: from end time (offset + duration) to 23:59:59.999
           const endBlockStart = new Date(
@@ -1300,19 +1300,10 @@ function generateSplitEvents(data, inputStart, inputEnd) {
           );
           const endBlockEnd = new Date(`${isoDate}T23:59:59.999`);
 
-          // results.push({
-          //   resourceId: item.resourceID,
-          //   start: endBlockStart,
-          //   end: endBlockEnd,
-          //   createdon: item.createdon,
-          //   type: "gap",
-          //   display: "background",
-          // });
-
           results.push({
             resourceId: item.resourceID,
-            start: startBlockEnd,
-            end: endBlockStart,
+            start: endBlockStart,
+            end: endBlockEnd,
             createdon: item.createdon,
             type: "gap",
             display: "background",

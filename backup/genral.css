@@ -2,7 +2,6 @@
   /* === Base Colors === */
   --bg-main: #f5f5f5;
   --bg-white: #ffffff;
-  --bg-init-purple:#a9a9f333;
   --text-toolbar: rgba(0, 0, 0, 0.6);
   --text-light: #ffffff;
   --text-dark: #000000;
@@ -90,7 +89,7 @@
 
 /* === BG Events Color === */
     --bg-event-color: #CCCCFF;
-    --bg-edited-event-color:#e97132;
+    --bg-edited-event-color:#e97132:
 
   --scrollbar-color: #2f3b4c;
   --border-color: rgba(200, 200, 200, 0.1);

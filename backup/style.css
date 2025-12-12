@@ -567,7 +567,6 @@ select:focus > option:hover {
 /***** Vertical Sepration lines (Dahsed) *****/
 .ec-line::after {
   border-left: 3px dashed var(--border-color) !important;
-  z-index: 10;
 }
 
 /**** Sepraiton line Between Days in Header *****/
@@ -616,7 +615,6 @@ select:focus > option:hover {
 .ec-event {
   height: 8rem;
   background: transparent;
-  z-index: 20;
 }
 
 .event-disp-container {
@@ -937,12 +935,13 @@ select:focus > option:hover {
 }
 
 .ec-bg-event {
-  background-color: var(--bg-main);
+  color: #ccccff;
+  background-color: #ccccff;
   margin: auto;
+  /* height: 8rem !important; */
   top: 0;
-  opacity: 1;
 }
 
-.ec-init > .ec-days {
-  background-color: var(--bg-init-purple);
+.ec-bg-event-edited {
+  background-color: #e97132 !important;
 }

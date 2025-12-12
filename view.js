@@ -2,6 +2,50 @@
 // View: Handles UI rendering, DOM interactions, and display logic
 
 // Render Functions
+function parseDateOld(date) {
+  const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+  });
+  const weekday = weekdayFormatter.format(date);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  const d = new Date(date);
+
+  // Ensure valid date
+  if (isNaN(d.getTime())) {
+    throw new Error("Invalid date input");
+  }
+
+  // Reference date: September 15, 2025 (DATE(2025,9,15) in Excel)
+  const referenceDate = new Date(2025, 8, 15); // September 15, 2025
+
+  // Calculate difference in days
+  const timeDiff = d.getTime() - referenceDate.getTime();
+  const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+  // Excel formula: MOD(QUOTIENT([Date]-DATE(2025,9,15),7),2)+1
+  const quotient = Math.floor(daysDiff / 7);
+  const modResult = ((quotient % 2) + 2) % 2; // Handle negative modulo properly
+
+  let parity = modResult + 1;
+
+  let label = `${weekday} - ${day}-${month}-${year} (Week-${parity})`;
+
+  const colorMap = {
+    1: "#4F7AB3",
+    2: "#225f27ff",
+  };
+
+  const color = colorMap[parity] || "#00000";
+
+  // Return HTML string with inline background style
+  return {
+    html: `<div style="color: ${color}; padding: 4px 8px; border-radius: 4px;">${label}</div>`,
+  };
+}
+
 function parseDate(date) {
   console.log("raw date", date);
   // Ensure valid date
@@ -562,6 +606,24 @@ function resetDynamicHeight() {
   });
 }
 
+function addPurpleColor() {
+  const target = document.querySelector(".ec-body .ec-content");
+  console.log("Adding purple color class to ec-content");
+  console.log("Target element:", target);
+  if (target) {
+    console.log("Before adding class:", target.classList);
+    target.classList.add("ec-init");
+  }
+}
+
+function removePurpleColor() {
+  const target = document.querySelector(".ec-body .ec-content");
+
+  if (target) {
+    target.classList.remove("ec-init");
+  }
+}
+
 function disposeAllTooltips() {
   const tooltipElements = document.querySelectorAll(
     '[data-bs-toggle="tooltip"]'
@@ -920,7 +982,7 @@ function formatTo24HourTime(dateObj) {
 function initTimePickers() {
   $(".starttime").timepicker({
     timeFormat: "h:mm p",
-    interval: 30,
+    interval: 60,
     startTime: "00:00",
     defaultTime: "6:00",
     dynamic: false,
@@ -929,6 +991,14 @@ function initTimePickers() {
 
     change: function (time) {
       const previousStart = $(this).data("previousTime");
+      if (time.getMinutes() !== 0) {
+        const roundedTime = new Date(time);
+        roundedTime.setMinutes(0, 0, 0);
+
+        $(this).timepicker("setTime", roundedTime, { trigger: false });
+        time = roundedTime; // important: continue logic with rounded value
+        console.log(time);
+      }
       if (previousStart === undefined) {
         $(this).data("previousTime", time);
         $(this).data("currentTime", time);
@@ -960,7 +1030,7 @@ function initTimePickers() {
 
   $(".endtime").timepicker({
     timeFormat: "h:mm p",
-    interval: 30,
+    interval: 60,
     startTime: "24:00",
     defaultTime: "18",
     dynamic: false,
@@ -969,6 +1039,14 @@ function initTimePickers() {
 
     change: function (time) {
       const previousEnd = $(this).data("previousTime");
+      if (time.getMinutes() !== 0) {
+        const roundedTime = new Date(time);
+        roundedTime.setMinutes(0, 0, 0);
+
+        $(this).timepicker("setTime", roundedTime, { trigger: false });
+        time = roundedTime; // important: continue logic with rounded value
+        console.log(time);
+      }
       if (previousEnd === undefined) {
         $(this).data("previousTime", time);
         $(this).data("currentTime", time);
@@ -1123,4 +1201,6 @@ window.View = {
   },
   showHolidays,
   hideHolidays,
+  addPurpleColor,
+  removePurpleColor,
 };

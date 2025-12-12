@@ -78,9 +78,11 @@ async function switchTab(tab) {
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
       window.View.hideHolidays();
+      window.View.addPurpleColor();
     } else if (tab === "leave") {
       // Ensure calendar view date change does not trigger duplicate fetch
       __suppressDateChangeOnce = true;
+      window.View.removePurpleColor();
       // For leave tab, we can load resources and time off data in parallel
       const [resources, timeOffData] = await Promise.all([
         window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
