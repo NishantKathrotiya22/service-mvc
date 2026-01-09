@@ -163,7 +163,7 @@ function getAgreementBookingDatesBetween() {
       endDate,
     "&$expand=",
     "msdyn_resource($select=name),",
-    "msdyn_bookingsetup($select=msdyn_agreementbookingsetupid,msdyn_estimatedduration,_ang_incidenttype_value,_vel_serviceaccount_value;$expand=vel_ServiceAccount($select=name)),",
+    "msdyn_bookingsetup($select=msdyn_agreementbookingsetupid,msdyn_estimatedduration,_ang_incidenttype_value,sog_selectedincidentservices,_vel_serviceaccount_value;$expand=vel_ServiceAccount($select=name)),",
     "msdyn_workorder($select=msdyn_workorderid,msdyn_city,msdyn_country,msdyn_postalcode,_msdyn_serviceterritory_value,msdyn_stateorprovince,msdyn_address1,msdyn_address2,msdyn_address3)",
   ].join("");
 
