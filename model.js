@@ -154,7 +154,7 @@ function getHolidays() {
 
 function getAgreementBookingDatesBetween() {
   const { startDate, endDate } = getAdjustedDateRangeFromCalendar();
-
+ 
   const query = [
     "?$select=msdyn_agreementbookingdateid,_msdyn_agreement_value,msdyn_bookingdate,msdyn_name,_msdyn_resource_value,msdyn_status,statecode",
     "&$filter=msdyn_bookingdate ge " +
@@ -163,14 +163,14 @@ function getAgreementBookingDatesBetween() {
       endDate,
     "&$expand=",
     "msdyn_resource($select=name),",
-    "msdyn_bookingsetup($select=msdyn_agreementbookingsetupid,msdyn_estimatedduration,_ang_incidenttype_value,sog_selectedincidentservices,_vel_serviceaccount_value;$expand=vel_ServiceAccount($select=name)),",
-    "msdyn_workorder($select=msdyn_workorderid,msdyn_city,msdyn_country,msdyn_postalcode,_msdyn_serviceterritory_value,msdyn_stateorprovince,msdyn_address1,msdyn_address2,msdyn_address3)",
+    "msdyn_bookingsetup($select=msdyn_agreementbookingsetupid,sog_placeholdertypecode,msdyn_estimatedduration,_ang_incidenttype_value,sog_selectedincidentservices,_vel_serviceaccount_value;$expand=vel_ServiceAccount($select=name)),",
+    "msdyn_workorder($select=msdyn_workorderid,msdyn_systemstatus,msdyn_city,msdyn_country,msdyn_postalcode,_msdyn_serviceterritory_value,msdyn_stateorprovince,msdyn_address1,msdyn_address2,msdyn_address3)",
   ].join("");
-
+ 
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
     "msdyn_agreementbookingdate",
     query,
-    5000
+    5000,
   );
 }
 
