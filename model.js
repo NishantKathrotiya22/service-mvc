@@ -169,7 +169,8 @@ function getAgreementBookingDatesBetween() {
 
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
     "msdyn_agreementbookingdate",
-    query
+    query,
+    5000
   );
 }
 
