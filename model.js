@@ -152,9 +152,14 @@ function getHolidays() {
   );
 }
 
-function getAgreementBookingDatesBetween() {
+/**
+ * Fetches all agreement booking dates in the calendar range, following nextLink
+ * pagination until all pages are retrieved. Returns a single response object
+ * with all entities so mapBookingEvents can consume it unchanged.
+ */
+async function getAgreementBookingDatesBetween() {
   const { startDate, endDate } = getAdjustedDateRangeFromCalendar();
- 
+
   const query = [
     "?$select=msdyn_agreementbookingdateid,_msdyn_agreement_value,msdyn_bookingdate,msdyn_name,_msdyn_resource_value,msdyn_status,statecode",
     "&$filter=msdyn_bookingdate ge " +
@@ -166,12 +171,34 @@ function getAgreementBookingDatesBetween() {
     "msdyn_bookingsetup($select=msdyn_agreementbookingsetupid,sog_placeholdertypecode,msdyn_estimatedduration,_ang_incidenttype_value,sog_selectedincidentservices,_vel_serviceaccount_value;$expand=vel_ServiceAccount($select=name)),",
     "msdyn_workorder($select=msdyn_workorderid,msdyn_systemstatus,msdyn_city,msdyn_country,msdyn_postalcode,_msdyn_serviceterritory_value,msdyn_stateorprovince,msdyn_address1,msdyn_address2,msdyn_address3)",
   ].join("");
- 
-  return window.parent.Xrm.WebApi.retrieveMultipleRecords(
-    "msdyn_agreementbookingdate",
-    query,
-    5000,
-  );
+
+  const entityName = "msdyn_agreementbookingdate";
+  const maxPageSize = 5000;
+  const allEntities = [];
+  let nextOptions = query;
+
+  do {
+    const response = await window.parent.Xrm.WebApi.retrieveMultipleRecords(
+      entityName,
+      nextOptions,
+      maxPageSize
+    );
+
+    if (response.entities && response.entities.length > 0) {
+      allEntities.push(...response.entities);
+    }
+
+    if (response.nextLink) {
+      // nextLink is a full URL; use the query part (from ? onwards) as options for the next call
+      const queryStart = response.nextLink.indexOf("?");
+      nextOptions =
+        queryStart !== -1 ? response.nextLink.substring(queryStart) : null;
+    } else {
+      nextOptions = null;
+    }
+  } while (nextOptions);
+
+  return { entities: allEntities };
 }
 
 function getServiceType() {
