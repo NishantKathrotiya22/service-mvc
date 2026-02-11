@@ -473,6 +473,11 @@ function handleGetResorces(getResources, mapResources) {
   resorcesState.isError = false;
   resorcesState.resourceData = [];
 
+  // Disable search and filter dropdowns while fetching
+  if (window.View && window.View.setFiltersDisabled) {
+    window.View.setFiltersDisabled(true);
+  }
+
   // Show loading state in calendar
   if (window.ecCalendar) {
     window.ecCalendar.setOption("resources", [
@@ -513,6 +518,12 @@ function handleGetResorces(getResources, mapResources) {
       }
 
       throw error;
+    })
+    .finally(() => {
+      // Re-enable search and filter dropdowns when fetch completes or fails
+      if (window.View && window.View.setFiltersDisabled) {
+        window.View.setFiltersDisabled(false);
+      }
     });
 }
 

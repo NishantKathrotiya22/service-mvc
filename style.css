@@ -461,6 +461,20 @@ select:focus > option:hover {
   width: 2rem;
 }
 
+/* Disabled state while resources are fetching */
+body.resources-loading .search-input,
+body.resources-loading .sort-btn {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+body.resources-loading .custom-dropdown {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 /***** Resource Styling *****/
 
 .ec-timeline .ec-sidebar .ec-resource span {

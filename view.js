@@ -4,6 +4,22 @@
 // Debounce delay (ms) for filter API calls – search and dropdown selections
 const FILTER_DEBOUNCE_MS = 400;
 
+/**
+ * Enable or disable filter controls (search + dropdowns + sort) while resources are fetching.
+ * Adds body class "resources-loading" for styling and sets disabled on inputs/buttons.
+ */
+function setFiltersDisabled(disabled) {
+  const searchInput = document.querySelector(".search-input");
+  const sortBtn = document.querySelector(".sort-btn");
+  if (searchInput) searchInput.disabled = !!disabled;
+  if (sortBtn) sortBtn.disabled = !!disabled;
+  if (disabled) {
+    document.body.classList.add("resources-loading");
+  } else {
+    document.body.classList.remove("resources-loading");
+  }
+}
+
 // Render Functions
 function parseDateOld(date) {
   const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
@@ -1237,6 +1253,7 @@ window.View = {
   renderDropdowns,
   setupFilterDropdownsAndReset,
   resetFilterUI,
+  setFiltersDisabled,
   initCustomDropdowns,
   initFilterPanel,
   initDateRangePicker,
