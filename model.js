@@ -165,7 +165,8 @@ async function getAgreementBookingDatesBetween() {
     "&$filter=msdyn_bookingdate ge " +
       startDate +
       " and msdyn_bookingdate le " +
-      endDate,
+      endDate +
+      " and msdyn_resource/statecode eq 0 and msdyn_resource/resourcetype eq 3",
     "&$expand=",
     "msdyn_resource($select=name),",
     "msdyn_bookingsetup($select=msdyn_agreementbookingsetupid,sog_placeholdertypecode,msdyn_estimatedduration,_ang_incidenttype_value,sog_selectedincidentservices,_vel_serviceaccount_value;$expand=vel_ServiceAccount($select=name)),",

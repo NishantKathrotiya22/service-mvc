@@ -127,8 +127,15 @@
 /******Fix to Timepicker select*****/
 .ui-menu-item {
   font-size: 12px !important;
-  font-family: "Segoe UI", "Segoe UI Web (West European)", "Segoe UI",
-    -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif !important;
+  font-family:
+    "Segoe UI",
+    "Segoe UI Web (West European)",
+    "Segoe UI",
+    -apple-system,
+    BlinkMacSystemFont,
+    Roboto,
+    "Helvetica Neue",
+    sans-serif !important;
 }
 
 .ui-timepicker-viewport {
@@ -235,12 +242,18 @@ img[name="refreshIcon"] {
   border: 1px solid var(--border-color);
   border-top: none;
   display: none;
-  z-index: 10;
+  z-index: 100;
   max-height: 200px;
   overflow-y: auto;
   box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
   margin-top: 0.2rem;
   color: var(--text-resource);
+}
+
+/*   fix to timepicker select on top of event */
+
+.ui-timepicker-standard {
+  z-index: 100 !important;
 }
 
 .dropdown-option {
