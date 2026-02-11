@@ -2,7 +2,7 @@
 // View: Handles UI rendering, DOM interactions, and display logic
 
 // Debounce delay (ms) for filter API calls – search and dropdown selections
-const FILTER_DEBOUNCE_MS = 400;
+const FILTER_DEBOUNCE_MS = 1500;
 
 /**
  * Enable or disable filter controls (search + dropdowns + sort) while resources are fetching.
@@ -96,7 +96,7 @@ function parseDate(date) {
 
   // Calculate difference in days from reference date
   const daysDiff = Math.floor(
-    (currentDateUtc - referenceDateUtc) / (1000 * 60 * 60 * 24)
+    (currentDateUtc - referenceDateUtc) / (1000 * 60 * 60 * 24),
   );
   // Apply Excel formula logic
   const quotient = Math.floor(daysDiff / 7);
@@ -133,10 +133,10 @@ function renderTooltipContent(arg) {
   return `
     <div class="custom-tooltip-content">
       <p class="event-desc-id">${new Date(
-        arg.event.start
+        arg.event.start,
       ).toLocaleDateString()} - ${new Date(
-    arg.event.end
-  ).toLocaleDateString()}</p>
+        arg.event.end,
+      ).toLocaleDateString()}</p>
     
       <div class="event-desc-grid">
         <p>Address (Work Order)</p>
@@ -260,13 +260,13 @@ function renderEventDetails(arg) {
                serviceType[arg?.event?.extendedProps?.service_id] ?? "N/A"
              }</p>
             <p>${formatEventTime(start)} - ${
-      arg.event.extendedProps.duration
-    }</p> 
+              arg.event.extendedProps.duration
+            }</p> 
         </div>
         <div class="event-disp-icon">
             ${renderStatusIcon(
               arg?.event?.extendedProps?.workOrderStatus,
-              arg?.event?.extendedProps?.placeholder
+              arg?.event?.extendedProps?.placeholder,
             )}
         </div>
       </div>
@@ -320,18 +320,18 @@ function renderResources(info) {
 // UI Rendering and Interactions
 function renderDropdowns(options) {
   const regionLabel = document.querySelector(
-    '[name="region-filter"] .value-display'
+    '[name="region-filter"] .value-display',
   );
   const worktypeLabel = document.querySelector(
-    '[name="work-type-filter"] .value-display'
+    '[name="work-type-filter"] .value-display',
   );
 
   const regionDropdown = document.querySelector(
-    '.custom-dropdown label[for="region-filter"]'
+    '.custom-dropdown label[for="region-filter"]',
   ).nextElementSibling.nextElementSibling;
 
   const worktypeDropdown = document.querySelector(
-    '.custom-dropdown label[for="work-type-filter"]'
+    '.custom-dropdown label[for="work-type-filter"]',
   ).nextElementSibling.nextElementSibling;
 
   if (!regionDropdown || !worktypeDropdown) {
@@ -365,7 +365,7 @@ function renderDropdowns(options) {
   options.region.forEach((r) => {
     regionDropdown.insertAdjacentHTML(
       "beforeend",
-      `<li class="dropdown-option"><input type="checkbox" value="${r?.territoryid}" /> ${r?.name}</li>`
+      `<li class="dropdown-option"><input type="checkbox" value="${r?.territoryid}" /> ${r?.name}</li>`,
     );
   });
 
@@ -373,7 +373,7 @@ function renderDropdowns(options) {
   options.worktype.forEach((w) => {
     worktypeDropdown.insertAdjacentHTML(
       "beforeend",
-      `<li class="dropdown-option"><input type="checkbox" value="${w.bookableresourcecategoryid}" /> ${w.name}</li>`
+      `<li class="dropdown-option"><input type="checkbox" value="${w.bookableresourcecategoryid}" /> ${w.name}</li>`,
     );
   });
 }
@@ -427,7 +427,7 @@ function setupFilterDropdownsAndReset() {
           e.target.classList.add("selected-option");
         } else {
           filterState[filterKey] = filterState[filterKey].filter(
-            (v) => v !== value
+            (v) => v !== value,
           );
           e.target.classList.remove("selected-option");
         }
@@ -452,7 +452,7 @@ function setupFilterDropdownsAndReset() {
   setupMultiSelect('.custom-dropdown label[for="region-filter"]', "region");
   setupMultiSelect(
     '.custom-dropdown label[for="work-type-filter"]',
-    "worktype"
+    "worktype",
   );
 
   const resetBtn = document.getElementById("reset");
@@ -468,10 +468,12 @@ function setupFilterDropdownsAndReset() {
 
 function syncWorktypeDropdownFromState() {
   const filterState = window.Model.getFilterState();
-  const selected = Array.isArray(filterState.worktype) ? filterState.worktype : [];
-  const dropdown = document
-    .querySelector('.custom-dropdown label[for="work-type-filter"]')
-    ?.parentElement;
+  const selected = Array.isArray(filterState.worktype)
+    ? filterState.worktype
+    : [];
+  const dropdown = document.querySelector(
+    '.custom-dropdown label[for="work-type-filter"]',
+  )?.parentElement;
   if (!dropdown) return;
   const listItems = dropdown.querySelectorAll(".dropdown-option");
   const valueDisplay = dropdown.querySelector(".value-display");
@@ -556,7 +558,7 @@ function renderSearch() {
     const filterState = window.Model.getFilterState();
     window.Model.setFilterState(
       "search",
-      event.target.value.trim().toLowerCase()
+      event.target.value.trim().toLowerCase(),
     );
     if (window.Controller) window.Controller.applyFilters();
   };
@@ -608,17 +610,17 @@ function resizableBar() {
 
 function syncDynamicHeight() {
   const dayContainers = document.querySelectorAll(
-    ".ec-content > .ec-days:last-child > .ec-day > .ec-events"
+    ".ec-content > .ec-days:last-child > .ec-day > .ec-events",
   );
   const target = document.querySelector(
-    ".ec-resource:last-child .person-details"
+    ".ec-resource:last-child .person-details",
   );
   const ecDaysLast = document.querySelector(
-    ".ec-content > .ec-days:last-child"
+    ".ec-content > .ec-days:last-child",
   );
   const ecResourceLast = document.querySelector(".ec-resource:last-child");
   const ecDays = document.querySelectorAll(
-    ".ec-content > .ec-days:last-child > .ec-day"
+    ".ec-content > .ec-days:last-child > .ec-day",
   );
 
   if (
@@ -656,14 +658,14 @@ function syncDynamicHeight() {
 
 function resetDynamicHeight() {
   const target = document.querySelector(
-    ".ec-resource:last-child .person-details"
+    ".ec-resource:last-child .person-details",
   );
   const ecDaysLast = document.querySelector(
-    ".ec-content > .ec-days:last-child"
+    ".ec-content > .ec-days:last-child",
   );
   const ecResourceLast = document.querySelector(".ec-resource:last-child");
   const ecDays = document.querySelectorAll(
-    ".ec-content > .ec-days:last-child > .ec-day"
+    ".ec-content > .ec-days:last-child > .ec-day",
   );
 
   if (target) {
@@ -703,7 +705,7 @@ function removePurpleColor() {
 
 function disposeAllTooltips() {
   const tooltipElements = document.querySelectorAll(
-    '[data-bs-toggle="tooltip"]'
+    '[data-bs-toggle="tooltip"]',
   );
   tooltipElements.forEach((el) => {
     const instance = bootstrap.Tooltip.getInstance(el);
@@ -715,7 +717,7 @@ function initializeAllTooltips() {
   disposeAllTooltips();
 
   const tooltipElements = document.querySelectorAll(
-    '[data-bs-toggle="tooltip"]'
+    '[data-bs-toggle="tooltip"]',
   );
   tooltipElements.forEach((el) => {
     const existing = bootstrap.Tooltip.getInstance(el);
@@ -747,7 +749,7 @@ function handleTooltipClick(e) {
   if (!tooltipId) return;
 
   const tooltipTriggerEl = document.querySelector(
-    `[aria-describedby="${tooltipId}"]`
+    `[aria-describedby="${tooltipId}"]`,
   );
 
   if (id) {
@@ -811,7 +813,7 @@ function tooltipObserver() {
       const tooltips = document.querySelectorAll(".tooltip");
       tooltips.forEach((tooltipEl) => {
         const triggerElement = document.querySelector(
-          `[aria-describedby="${tooltipEl.id}"]`
+          `[aria-describedby="${tooltipEl.id}"]`,
         );
         if (triggerElement) {
           const tooltip = bootstrap.Tooltip.getInstance(triggerElement);
@@ -872,7 +874,7 @@ function openAgreementBookingSetupRecord(id) {
   };
   window.parent.Xrm.Navigation.navigateTo(pageInput, navigationOptions).then(
     function success() {},
-    function error() {}
+    function error() {},
   );
 }
 
@@ -958,7 +960,7 @@ function initDateRangePicker() {
           $(this).val(
             picker.startDate.format("DD/MM/YYYY") +
               " - " +
-              picker.endDate.format("DD/MM/YYYY")
+              picker.endDate.format("DD/MM/YYYY"),
           );
 
           if (window.ecCalendar) {
@@ -990,7 +992,7 @@ function initDateRangePicker() {
     picker.setEndDate(newEnd);
 
     $('input[name="datefilter"]').val(
-      `${newStart.format("DD/MM/YYYY")} - ${newEnd.format("DD/MM/YYYY")}`
+      `${newStart.format("DD/MM/YYYY")} - ${newEnd.format("DD/MM/YYYY")}`,
     );
 
     $('input[name="datefilter"]').trigger("apply.daterangepicker", [picker]);
@@ -1008,7 +1010,7 @@ function initDateRangePicker() {
     picker.setEndDate(newEnd);
 
     $('input[name="datefilter"]').val(
-      `${newStart.format("DD/MM/YYYY")} - ${newEnd.format("DD/MM/YYYY")}`
+      `${newStart.format("DD/MM/YYYY")} - ${newEnd.format("DD/MM/YYYY")}`,
     );
 
     $('input[name="datefilter"]').trigger("apply.daterangepicker", [picker]);
@@ -1033,7 +1035,7 @@ function initDateRangePicker() {
           $dateInput.data("daterangepicker").setStartDate(today);
           $dateInput.data("daterangepicker").setEndDate(today);
           $dateInput.val(
-            today.format("DD/MM/YYYY") + " - " + today.format("DD/MM/YYYY")
+            today.format("DD/MM/YYYY") + " - " + today.format("DD/MM/YYYY"),
           );
         }
       }
@@ -1236,7 +1238,7 @@ function showHolidays() {
 
   window.ecCalendar.setOption(
     "highlightedDates",
-    window.Model.getHolidayDates()
+    window.Model.getHolidayDates(),
   );
 }
 
