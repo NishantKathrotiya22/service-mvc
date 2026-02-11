@@ -126,10 +126,64 @@ function getCareType() {
   );
 }
 
+/**
+ * Escapes a string for use inside OData contains() single-quoted value.
+ * Doubles single quotes so they are safe in the filter.
+ */
+function escapeODataContainsValue(str) {
+  if (str == null) return "";
+  return String(str).replace(/'/g, "''");
+}
+
+/**
+ * Builds OData $filter for bookableresource from current filter state (region + worktype + search).
+ * Uses getFilterState() so default worktype is applied when empty.
+ * Returns the full options string (?$filter=...&$select=...&$expand=...) for retrieveMultipleRecords.
+ */
+function buildBookableResourcesQuery() {
+  const state = window.Model.getFilterState();
+  const regionIds = Array.isArray(state.region) ? state.region : [];
+  const worktypeIds = Array.isArray(state.worktype) ? state.worktype : [];
+  const search = (state.search != null && String(state.search).trim()) || "";
+
+  const base = "statecode eq 0 and resourcetype eq 3";
+  const parts = [base];
+
+  if (regionIds.length > 0) {
+    const territoryPredicate = regionIds
+      .map((id) => `t/_msdyn_territory_value eq ${id}`)
+      .join(" or ");
+    parts.push(
+      `msdyn_bookableresource_msdyn_resourceterritory_Resource/any(t:(${territoryPredicate}) and t/statecode eq 0)`
+    );
+  }
+  if (worktypeIds.length > 0) {
+    const categoryPredicate = worktypeIds
+      .map((id) => `c/_resourcecategory_value eq ${id}`)
+      .join(" or ");
+    parts.push(
+      `bookableresource_bookableresourcecategoryassn_Resource/any(c:(${categoryPredicate}) and c/statecode eq 0)`
+    );
+  }
+  if (search.length > 0) {
+    const escaped = escapeODataContainsValue(search.trim());
+    parts.push(`contains(name, '${escaped}')`);
+  }
+
+  const filterStr = parts.join(" and ");
+  const select =
+    "name,createdon,resourcetype,bookableresourceid,_calendarid_value";
+  const expand =
+    "UserId($select=entityimage_url),msdyn_bookableresource_msdyn_resourceterritory_Resource($select=msdyn_resourceterritoryid,msdyn_name,_msdyn_resource_value,_msdyn_territory_value,statecode)";
+  const options = `?$filter=${encodeURIComponent(filterStr)}&$select=${select}&$expand=${expand}`;
+  return options;
+}
+
 function getBookableResources() {
+  const options = buildBookableResourcesQuery();
   return window.parent.Xrm.WebApi.retrieveMultipleRecords(
     "bookableresource",
-    "?$filter=statecode%20eq%200&$select=name,resourcetype,_calendarid_value&$expand=UserId($select=entityimage_url),msdyn_bookableresource_msdyn_resourceterritory_Resource($select=msdyn_resourceterritoryid,msdyn_name,_msdyn_resource_value,_msdyn_territory_value,statecode)"
+    options
   );
 }
 

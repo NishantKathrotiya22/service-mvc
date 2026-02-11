@@ -116,25 +116,53 @@ async function switchTab(tab) {
   }
 }
 
-function applyFilters() {
+async function applyFilters() {
   window.View.resetDynamicHeight();
-  // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
-  const filteredResources = window.Model.getResources();
-  window.View.reRenderResources(filteredResources);
-  setTimeout(() => {
-    window.View.refreshCalendarUI();
-  }, 0);
+  try {
+    // Refetch resources from API with current filter state (region + worktype) in URL
+    await window.Model.handleGetResorces(
+      getBookableResources,
+      mapOverIntialData
+    );
+    if (currentTab === "init") {
+      await window.Model.buildResourcePatterns();
+      await window.Model.handleEventFetch();
+    }
+    const resources = window.Model.getResources();
+    window.View.reRenderResources(resources);
+    window.View.reRenderEvents();
+    setTimeout(() => window.View.refreshCalendarUI(), 0);
+  } catch (error) {
+    console.error("Error applying filters:", error);
+    const resources = window.Model.getResources();
+    window.View.reRenderResources(resources || []);
+    setTimeout(() => window.View.refreshCalendarUI(), 0);
+  }
 }
 
-function resetFilters() {
+async function resetFilters() {
   window.Model.resetFilterState();
   window.View.resetFilterUI();
-  // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
-  const filteredResources = window.Model.getResources();
-  window.View.reRenderResources(filteredResources);
-  setTimeout(() => {
-    window.View.refreshCalendarUI();
-  }, 0);
+  try {
+    // Refetch resources with default filter (default worktype) in URL
+    await window.Model.handleGetResorces(
+      getBookableResources,
+      mapOverIntialData
+    );
+    if (currentTab === "init") {
+      await window.Model.buildResourcePatterns();
+      await window.Model.handleEventFetch();
+    }
+    const resources = window.Model.getResources();
+    window.View.reRenderResources(resources);
+    window.View.reRenderEvents();
+    setTimeout(() => window.View.refreshCalendarUI(), 0);
+  } catch (error) {
+    console.error("Error resetting filters:", error);
+    const resources = window.Model.getResources();
+    window.View.reRenderResources(resources || []);
+    setTimeout(() => window.View.refreshCalendarUI(), 0);
+  }
 }
 
 async function handleDateChange() {

@@ -1,6 +1,9 @@
 // view.js
 // View: Handles UI rendering, DOM interactions, and display logic
 
+// Debounce delay (ms) for filter API calls – search and dropdown selections
+const FILTER_DEBOUNCE_MS = 400;
+
 // Render Functions
 function parseDateOld(date) {
   const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
@@ -359,9 +362,21 @@ function renderDropdowns(options) {
   });
 }
 
+function debouncedApplyFilters() {
+  let timer = null;
+  return function () {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      if (window.Controller) window.Controller.applyFilters();
+    }, FILTER_DEBOUNCE_MS);
+  };
+}
+
 function setupFilterDropdownsAndReset() {
   const filterState = window.Model.getFilterState();
   filterState.region = [];
+  const applyFiltersDebounced = debouncedApplyFilters();
 
   function setupMultiSelect(dropdownSelector, filterKey) {
     const dropdown = document.querySelector(dropdownSelector).parentElement;
@@ -407,8 +422,8 @@ function setupFilterDropdownsAndReset() {
           valueDisplay.textContent = "Select an option";
         }
 
-        // Notify controller to apply filters
-        if (window.Controller) window.Controller.applyFilters();
+        // Debounced apply so multiple quick selections trigger one API call
+        applyFiltersDebounced();
       });
     });
 
@@ -530,11 +545,10 @@ function renderSearch() {
     if (window.Controller) window.Controller.applyFilters();
   };
 
-  // Simple debounce implementation
-  let timer;
+  let searchTimer;
   searchInput.addEventListener("keyup", (e) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => debouncedFilter(e), 300);
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => debouncedFilter(e), FILTER_DEBOUNCE_MS);
   });
 
   sortBtn.addEventListener("click", () => {
