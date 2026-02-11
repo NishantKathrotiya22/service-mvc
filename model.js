@@ -137,7 +137,7 @@ function escapeODataContainsValue(str) {
 
 /**
  * Builds OData $filter for bookableresource from current filter state (region + worktype + search).
- * Uses getFilterState() so default worktype is applied when empty.
+ * Only includes worktype/region in the API when the user has selections; if all are deselected, that part is omitted.
  * Returns the full options string (?$filter=...&$select=...&$expand=...) for retrieveMultipleRecords.
  */
 function buildBookableResourcesQuery() {
@@ -173,8 +173,7 @@ function buildBookableResourcesQuery() {
   const filterStr = parts.join(" and ");
   const select =
     "name,createdon,resourcetype,bookableresourceid,_calendarid_value";
-  const expand =
-    "UserId($select=entityimage_url),msdyn_bookableresource_msdyn_resourceterritory_Resource($select=msdyn_resourceterritoryid,msdyn_name,_msdyn_resource_value,_msdyn_territory_value,statecode)";
+  const expand = "UserId($select=entityimage_url)";
   const options = `?$filter=${encodeURIComponent(filterStr)}&$select=${select}&$expand=${expand}`;
   return options;
 }
@@ -275,14 +274,6 @@ function getBookableResourcesWithCategory() {
 }
 
 // Map Functions
-function getActiveTerritoryValues(territories) {
-  if (!Array.isArray(territories)) return [];
-
-  return territories
-    .filter((item) => (item?.statecode ?? 0) == 0)
-    .map((item) => item._msdyn_territory_value);
-}
-
 function mapOverLeaveData(response) {
   return response.entities.map((r) => ({
     id: r?._msdyn_resource_value,
@@ -315,9 +306,6 @@ function mapOverIntialData(response) {
           `${refLink}sog_CareWorkerAvtar?preview=1`,
         name: r.name,
         resourceType: `${r?.resourcetype}`,
-        region: getActiveTerritoryValues(
-          r?.msdyn_bookableresource_msdyn_resourceterritory_Resource || []
-        ),
       },
     };
   });
@@ -1489,17 +1477,9 @@ window.Model = {
   getFilterStatus: () => filterStatus,
   getResorcesState: () => resorcesState,
   getEventStatus: () => eventStatus,
-  // Always ensure a default worktype is present the first time filters are read.
-  // If worktype was cleared elsewhere, this will re-apply the default.
-  getFilterState: () => {
-    if (
-      !Array.isArray(filterState.worktype) ||
-      filterState.worktype.length === 0
-    ) {
-      filterState.worktype = [DEFAULT_WORKTYPE_ID];
-    }
-    return filterState;
-  },
+  // Return current filter state as-is. When user deselects the default worktype,
+  // worktype stays [] so the API query does not include any worktype filter.
+  getFilterState: () => filterState,
   setFilterState: (key, value) => {
     filterState[key] = value;
   },

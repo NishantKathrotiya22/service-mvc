@@ -23,7 +23,7 @@ async function init() {
     window.View.tooltipObserver();
 
     // 4. First ensure bookableResourceCategoryHandler completes to get calendar IDs
-    await window.Model.bookableResourceCategoryHandler();
+    // await window.Model.bookableResourceCategoryHandler();
 
     // 5. Then load other data in parallel
     await Promise.all([
@@ -64,7 +64,7 @@ async function switchTab(tab) {
         // 1. Fetch resources (shows loading state inside Model)
         await window.Model.handleGetResorces(
           getBookableResources,
-          mapOverIntialData
+          mapOverIntialData,
         );
 
         // Create the Work hour pattern lookup
@@ -90,10 +90,13 @@ async function switchTab(tab) {
       try {
         // For leave tab, we can load resources and time off data in parallel
         const [resources, timeOffData] = await Promise.all([
-          window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
+          window.Model.handleGetResorces(
+            getBookableResources,
+            mapOverIntialData,
+          ),
           window.Model.handleGetTimeoffWithoutSet(
             getTimeOffRequests,
-            mapOverLeaveData
+            mapOverLeaveData,
           ),
         ]);
 
@@ -129,7 +132,7 @@ async function applyFilters() {
     // Refetch resources from API with current filter state (region + worktype) in URL
     await window.Model.handleGetResorces(
       getBookableResources,
-      mapOverIntialData
+      mapOverIntialData,
     );
     if (currentTab === "init") {
       await window.Model.buildResourcePatterns();
@@ -156,7 +159,7 @@ async function resetFilters() {
     // Refetch resources with default filter (default worktype) in URL
     await window.Model.handleGetResorces(
       getBookableResources,
-      mapOverIntialData
+      mapOverIntialData,
     );
     if (currentTab === "init") {
       await window.Model.buildResourcePatterns();
@@ -187,7 +190,7 @@ async function handleDateChange() {
       const [timeOffData] = await Promise.all([
         window.Model.handleGetTimeoffWithoutSet(
           getTimeOffRequests,
-          mapOverLeaveData
+          mapOverLeaveData,
         ),
       ]);
 
@@ -215,13 +218,13 @@ async function handleDateChange() {
 async function refreshData() {
   try {
     window.Model.resetEventFetchFlags(); // Reset event fetch flags when refreshing
-    await window.Model.bookableResourceCategoryHandler();
+    // await window.Model.bookableResourceCategoryHandler();
 
     if (currentTab === "init") {
       try {
         await window.Model.handleGetResorces(
           getBookableResources,
-          mapOverIntialData
+          mapOverIntialData,
         );
         await window.Model.buildResourcePatterns();
         await window.Model.handleEventFetch();
@@ -236,13 +239,13 @@ async function refreshData() {
       try {
         await window.Model.handleGetResorces(
           getBookableResources,
-          mapOverIntialData
+          mapOverIntialData,
         );
 
         const [timeOffData] = await Promise.all([
           window.Model.handleGetTimeoffWithoutSet(
             getTimeOffRequests,
-            mapOverLeaveData
+            mapOverLeaveData,
           ),
         ]);
 
