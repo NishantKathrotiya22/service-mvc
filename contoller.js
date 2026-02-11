@@ -73,7 +73,8 @@ async function switchTab(tab) {
       await window.Model.handleEventFetch();
 
       // 3. Render resources and events together
-      const filteredResources = window.Model.applyAllFilters();
+      // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
+      const filteredResources = window.Model.getResources();
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
@@ -96,8 +97,9 @@ async function switchTab(tab) {
       window.Model.calculateLookupData(timeOffData);
       await window.Model.handleEventFetch();
 
-      // Update UI
-      const filteredResources = window.Model.applyAllFilters();
+      // Update UI (filtering disabled, render all resources)
+      // const filteredResources = window.Model.applyAllFilters();
+      const filteredResources = window.Model.getResources();
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
       window.View.refreshCalendarUI();
@@ -116,7 +118,8 @@ async function switchTab(tab) {
 
 function applyFilters() {
   window.View.resetDynamicHeight();
-  const filteredResources = window.Model.applyAllFilters();
+  // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
+  const filteredResources = window.Model.getResources();
   window.View.reRenderResources(filteredResources);
   setTimeout(() => {
     window.View.refreshCalendarUI();
@@ -126,7 +129,8 @@ function applyFilters() {
 function resetFilters() {
   window.Model.resetFilterState();
   window.View.resetFilterUI();
-  const filteredResources = window.Model.applyAllFilters();
+  // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
+  const filteredResources = window.Model.getResources();
   window.View.reRenderResources(filteredResources);
   setTimeout(() => {
     window.View.refreshCalendarUI();
@@ -182,7 +186,8 @@ async function refreshData() {
       await window.Model.buildResourcePatterns();
       await window.Model.handleEventFetch();
 
-      const filteredResources = window.Model.applyAllFilters();
+      // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
+      const filteredResources = window.Model.getResources();
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
     } else if (currentTab === "leave") {
@@ -202,7 +207,8 @@ async function refreshData() {
 
       await window.Model.handleEventFetch();
 
-      const filteredResources = window.Model.applyAllFilters();
+      // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
+      const filteredResources = window.Model.getResources();
       window.View.reRenderResources(filteredResources);
       window.View.reRenderEvents();
     }

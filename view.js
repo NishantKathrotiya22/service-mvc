@@ -362,16 +362,27 @@ function renderDropdowns(options) {
 function setupFilterDropdownsAndReset() {
   const filterState = window.Model.getFilterState();
   filterState.region = [];
-  filterState.worktype = [];
 
   function setupMultiSelect(dropdownSelector, filterKey) {
     const dropdown = document.querySelector(dropdownSelector).parentElement;
     const listItems = dropdown.querySelectorAll(".dropdown-option");
     const valueDisplay = dropdown.querySelector(".value-display");
 
+    const preselectedValues = Array.isArray(filterState[filterKey])
+      ? filterState[filterKey]
+      : [];
+    let selectedCount = 0;
+
     listItems.forEach((li) => {
       const checkbox = li.querySelector("input[type='checkbox']");
       const value = checkbox.value.trim();
+
+      // Apply any preselected values from the current filter state
+      if (preselectedValues.includes(value)) {
+        checkbox.checked = true;
+        li.classList.add("selected-option");
+        selectedCount++;
+      }
 
       li.addEventListener("click", function (e) {
         if (e.target.tagName.toLowerCase() !== "input") {
@@ -400,6 +411,11 @@ function setupFilterDropdownsAndReset() {
         if (window.Controller) window.Controller.applyFilters();
       });
     });
+
+    // If there were any preselected values, ensure the label reflects that
+    if (selectedCount > 0) {
+      valueDisplay.textContent = `${selectedCount} item(s) selected`;
+    }
   }
 
   setupMultiSelect('.custom-dropdown label[for="region-filter"]', "region");
@@ -417,6 +433,34 @@ function setupFilterDropdownsAndReset() {
       if (window.Controller) window.Controller.resetFilters();
     });
   }
+}
+
+function syncWorktypeDropdownFromState() {
+  const filterState = window.Model.getFilterState();
+  const selected = Array.isArray(filterState.worktype) ? filterState.worktype : [];
+  const dropdown = document
+    .querySelector('.custom-dropdown label[for="work-type-filter"]')
+    ?.parentElement;
+  if (!dropdown) return;
+  const listItems = dropdown.querySelectorAll(".dropdown-option");
+  const valueDisplay = dropdown.querySelector(".value-display");
+  if (!valueDisplay) return;
+  let count = 0;
+  listItems.forEach((li) => {
+    const checkbox = li.querySelector("input[type='checkbox']");
+    if (!checkbox) return;
+    const value = checkbox.value.trim();
+    const isSelected = selected.includes(value);
+    checkbox.checked = isSelected;
+    if (isSelected) {
+      li.classList.add("selected-option");
+      count++;
+    } else {
+      li.classList.remove("selected-option");
+    }
+  });
+  valueDisplay.textContent =
+    count > 0 ? `${count} item(s) selected` : "Select an option";
 }
 
 function resetFilterUI() {
@@ -441,6 +485,9 @@ function resetFilterUI() {
 
   // Reset dynamic heights before applying filters
   resetDynamicHeight();
+
+  // Re-apply default worktype selection so it displays after reset
+  syncWorktypeDropdownFromState();
 }
 
 function renderSearch() {

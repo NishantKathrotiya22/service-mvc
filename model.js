@@ -2,9 +2,13 @@
 // Model: Handles data fetching, mapping, state management, and business logic
 console.log("v5");
 // Global State
+// Default Care Worker / worktype filter – applied only on first load.
+// UI will manage additions/removals after initialization.
+const DEFAULT_WORKTYPE_ID = "139ae143-8e60-eb11-a812-00224815157c";
+
 let filterState = {
-  region: null,
-  worktype: null,
+  region: [],
+  worktype: [DEFAULT_WORKTYPE_ID],
   search: "",
   sortAsc: true,
 };
@@ -859,7 +863,7 @@ function applyAllFilters() {
 
 function resetFilterState() {
   filterState.region = [];
-  filterState.worktype = [];
+  filterState.worktype = [DEFAULT_WORKTYPE_ID];
   filterState.search = "";
   filterState.sortAsc = true;
 }
@@ -870,7 +874,7 @@ function resetEventFetchFlags() {
 }
 function resetState() {
   filterState.region = [];
-  filterState.worktype = [];
+  filterState.worktype = [DEFAULT_WORKTYPE_ID];
   filterState.search = "";
   filterState.sortAsc = true;
   isEventFetching = false;
@@ -1425,7 +1429,17 @@ window.Model = {
   getFilterStatus: () => filterStatus,
   getResorcesState: () => resorcesState,
   getEventStatus: () => eventStatus,
-  getFilterState: () => filterState,
+  // Always ensure a default worktype is present the first time filters are read.
+  // If worktype was cleared elsewhere, this will re-apply the default.
+  getFilterState: () => {
+    if (
+      !Array.isArray(filterState.worktype) ||
+      filterState.worktype.length === 0
+    ) {
+      filterState.worktype = [DEFAULT_WORKTYPE_ID];
+    }
+    return filterState;
+  },
   setFilterState: (key, value) => {
     filterState[key] = value;
   },
