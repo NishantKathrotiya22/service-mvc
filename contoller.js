@@ -60,53 +60,60 @@ async function switchTab(tab) {
     if (tab === "init") {
       // Ensure calendar view date change does not trigger duplicate fetch
       __suppressDateChangeOnce = true;
-      // 1. Fetch resources (shows loading state inside Model)
-      await window.Model.handleGetResorces(
-        getBookableResources,
-        mapOverIntialData
-      );
+      try {
+        // 1. Fetch resources (shows loading state inside Model)
+        await window.Model.handleGetResorces(
+          getBookableResources,
+          mapOverIntialData
+        );
 
-      // Create the Work hour pattern lookup
-      await window.Model.buildResourcePatterns();
+        // Create the Work hour pattern lookup
+        await window.Model.buildResourcePatterns();
 
-      // 2. Fetch events (this waits for any calendar batch work if needed)
-      await window.Model.handleEventFetch();
+        // 2. Fetch events (this waits for any calendar batch work if needed)
+        await window.Model.handleEventFetch();
 
-      // 3. Render resources and events together
-      // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
-      const filteredResources = window.Model.getResources();
-      window.View.reRenderResources(filteredResources);
-      window.View.reRenderEvents();
-      window.View.refreshCalendarUI();
-      window.View.hideHolidays();
-      window.View.addPurpleColor();
+        // 3. Render resources and events together
+        const filteredResources = window.Model.getResources();
+        window.View.reRenderResources(filteredResources);
+        window.View.reRenderEvents();
+        window.View.refreshCalendarUI();
+        window.View.hideHolidays();
+        window.View.addPurpleColor();
+      } finally {
+        window.View.setFiltersDisabled(false);
+      }
     } else if (tab === "leave") {
       // Ensure calendar view date change does not trigger duplicate fetch
       __suppressDateChangeOnce = true;
       window.View.removePurpleColor();
-      // For leave tab, we can load resources and time off data in parallel
-      const [resources, timeOffData] = await Promise.all([
-        window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
-        window.Model.handleGetTimeoffWithoutSet(
-          getTimeOffRequests,
-          mapOverLeaveData
-        ),
-      ]);
+      try {
+        // For leave tab, we can load resources and time off data in parallel
+        const [resources, timeOffData] = await Promise.all([
+          window.Model.handleGetResorces(getBookableResources, mapOverIntialData),
+          window.Model.handleGetTimeoffWithoutSet(
+            getTimeOffRequests,
+            mapOverLeaveData
+          ),
+        ]);
 
-      // Build lookups and then fetch events
-      window.Model.calculateLookupData(timeOffData);
-      await window.Model.handleEventFetch();
+        // Build lookups and then fetch events
+        window.Model.calculateLookupData(timeOffData);
+        await window.Model.handleEventFetch();
 
-      // Update UI (filtering disabled, render all resources)
-      // const filteredResources = window.Model.applyAllFilters();
-      const filteredResources = window.Model.getResources();
-      window.View.reRenderResources(filteredResources);
-      window.View.reRenderEvents();
-      window.View.refreshCalendarUI();
-      window.View.showHolidays();
+        // Update UI
+        const filteredResources = window.Model.getResources();
+        window.View.reRenderResources(filteredResources);
+        window.View.reRenderEvents();
+        window.View.refreshCalendarUI();
+        window.View.showHolidays();
+      } finally {
+        window.View.setFiltersDisabled(false);
+      }
     }
   } catch (error) {
     console.error(`Error switching to ${tab} tab:`, error);
+    window.View.setFiltersDisabled(false);
     const resorcesState = window.Model.getResorcesState();
     resorcesState.isLoading = false;
     resorcesState.isError = true;
@@ -137,6 +144,8 @@ async function applyFilters() {
     const resources = window.Model.getResources();
     window.View.reRenderResources(resources || []);
     setTimeout(() => window.View.refreshCalendarUI(), 0);
+  } finally {
+    window.View.setFiltersDisabled(false);
   }
 }
 
@@ -162,6 +171,8 @@ async function resetFilters() {
     const resources = window.Model.getResources();
     window.View.reRenderResources(resources || []);
     setTimeout(() => window.View.refreshCalendarUI(), 0);
+  } finally {
+    window.View.setFiltersDisabled(false);
   }
 }
 
@@ -207,43 +218,50 @@ async function refreshData() {
     await window.Model.bookableResourceCategoryHandler();
 
     if (currentTab === "init") {
-      await window.Model.handleGetResorces(
-        getBookableResources,
-        mapOverIntialData
-      );
-      await window.Model.buildResourcePatterns();
-      await window.Model.handleEventFetch();
+      try {
+        await window.Model.handleGetResorces(
+          getBookableResources,
+          mapOverIntialData
+        );
+        await window.Model.buildResourcePatterns();
+        await window.Model.handleEventFetch();
 
-      // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
-      const filteredResources = window.Model.getResources();
-      window.View.reRenderResources(filteredResources);
-      window.View.reRenderEvents();
+        const filteredResources = window.Model.getResources();
+        window.View.reRenderResources(filteredResources);
+        window.View.reRenderEvents();
+      } finally {
+        window.View.setFiltersDisabled(false);
+      }
     } else if (currentTab === "leave") {
-      await window.Model.handleGetResorces(
-        getBookableResources,
-        mapOverIntialData
-      );
+      try {
+        await window.Model.handleGetResorces(
+          getBookableResources,
+          mapOverIntialData
+        );
 
-      const [timeOffData] = await Promise.all([
-        window.Model.handleGetTimeoffWithoutSet(
-          getTimeOffRequests,
-          mapOverLeaveData
-        ),
-      ]);
+        const [timeOffData] = await Promise.all([
+          window.Model.handleGetTimeoffWithoutSet(
+            getTimeOffRequests,
+            mapOverLeaveData
+          ),
+        ]);
 
-      window.Model.calculateLookupData(timeOffData);
+        window.Model.calculateLookupData(timeOffData);
 
-      await window.Model.handleEventFetch();
+        await window.Model.handleEventFetch();
 
-      // const filteredResources = window.Model.applyAllFilters(); // filtering disabled
-      const filteredResources = window.Model.getResources();
-      window.View.reRenderResources(filteredResources);
-      window.View.reRenderEvents();
+        const filteredResources = window.Model.getResources();
+        window.View.reRenderResources(filteredResources);
+        window.View.reRenderEvents();
+      } finally {
+        window.View.setFiltersDisabled(false);
+      }
     }
 
     window.View.refreshCalendarUI();
   } catch (error) {
     console.error("Error refreshing data:", error);
+    window.View.setFiltersDisabled(false);
     const resorcesState = window.Model.getResorcesState();
     resorcesState.isLoading = false;
     resorcesState.isError = true;

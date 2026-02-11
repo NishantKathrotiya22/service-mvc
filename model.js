@@ -518,13 +518,8 @@ function handleGetResorces(getResources, mapResources) {
       }
 
       throw error;
-    })
-    .finally(() => {
-      // Re-enable search and filter dropdowns when fetch completes or fails
-      if (window.View && window.View.setFiltersDisabled) {
-        window.View.setFiltersDisabled(false);
-      }
     });
+  // Filters are re-enabled by the controller after the full load (resources + patterns + events)
 }
 
 function handleFilterFetch() {
