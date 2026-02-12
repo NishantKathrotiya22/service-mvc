@@ -1023,7 +1023,8 @@ function initDateRangePicker() {
 
       if (window.ecCalendar) {
         window.ecCalendar.setOption("date", new Date());
-        window.ecCalendar.setOption("duration", { days: 8 });
+        // Show exactly 1 day when clicking Today (no forced 8-day range)
+        window.ecCalendar.setOption("duration", { days: 1 });
       }
 
       if (
@@ -1045,8 +1046,10 @@ function initDateRangePicker() {
 }
 
 function getCalendarDuration(startDate, endDate) {
+  // Use exactly the range the user selected in the date picker.
+  // No minimum of 8 days – if they pick 1 day, show 1 day, etc.
   const selectedDays = endDate.diff(startDate, "days") + 1;
-  return Math.max(8, selectedDays);
+  return selectedDays;
 }
 
 function formatTo24HourTime(dateObj) {
@@ -1205,7 +1208,7 @@ function createCalendar() {
     initialView: "resourceTimelineDay",
     slotWidth: "220",
     slotHeight: "80",
-    duration: { days: 10 },
+    duration: { days: 1 },
     headerToolbar: false,
     editable: false,
     durationEditable: false,

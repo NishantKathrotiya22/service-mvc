@@ -136,15 +136,22 @@ function escapeODataContainsValue(str) {
 }
 
 /**
- * Builds OData $filter for bookableresource from current filter state (region + worktype + search).
- * Only includes worktype/region in the API when the user has selections; if all are deselected, that part is omitted.
- * Returns the full options string (?$filter=...&$select=...&$expand=...) for retrieveMultipleRecords.
+ * Builds OData options for bookableresource from current filter state:
+ * - region (territory filter via any())
+ * - worktype (category filter via any())
+ * - search (contains(name, ...))
+ * - sortAsc (name asc/desc)
+ *
+ * Only includes region/worktype/search clauses when the user has selections;
+ * if all are deselected/empty, those parts are omitted.
  */
 function buildBookableResourcesQuery() {
   const state = window.Model.getFilterState();
   const regionIds = Array.isArray(state.region) ? state.region : [];
   const worktypeIds = Array.isArray(state.worktype) ? state.worktype : [];
   const search = (state.search != null && String(state.search).trim()) || "";
+  const sortAsc =
+    typeof state.sortAsc === "boolean" ? state.sortAsc : true; // default asc
 
   const base = "statecode eq 0 and resourcetype eq 3";
   const parts = [base];
@@ -174,7 +181,11 @@ function buildBookableResourcesQuery() {
   const select =
     "name,createdon,resourcetype,bookableresourceid,_calendarid_value";
   const expand = "UserId($select=entityimage_url)";
-  const options = `?$filter=${encodeURIComponent(filterStr)}&$select=${select}&$expand=${expand}`;
+  const orderby = `name ${sortAsc ? "asc" : "desc"}`;
+
+  const options = `?$filter=${encodeURIComponent(
+    filterStr
+  )}&$select=${select}&$expand=${expand}&$orderby=${orderby}`;
   return options;
 }
 
