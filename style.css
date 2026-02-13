@@ -351,9 +351,17 @@ select:focus > option:hover {
   overflow-y: hidden;
 }
 
-.ec-container {
+/* .ec-container {
   min-width: 100% !important;
   display: flex;
+} */
+
+.ec-container {
+  min-width: 100%;
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start !important;
 }
 
 /* .ec-body  */
@@ -397,12 +405,24 @@ select:focus > option:hover {
 .ec-body {
   flex: 1 1 auto;
   overflow: auto;
+
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.ec-main {
+/* .ec-main {
   min-width: 100%;
   display: inline-block;
   border-right: 2px dashed var(--border-color);
+} */
+
+.ec-main {
+  min-width: 85vw !important;
+  width: 85vw;
+  display: flex;
+  flex-direction: column;
+  border-right: 2px dashed var(--border-color);
+  box-sizing: border-box;
 }
 
 /***** Fitting Serach Container at .ec-sidebar-title  *****/
@@ -973,3 +993,33 @@ body.resources-loading .custom-dropdown {
 .ec-init > .ec-days {
   background-color: var(--bg-init-purple);
 }
+
+/* On the outer scroll container
+.ec-main-container {
+  width: 84%;
+  overflow-x: auto;
+}
+/* If you're using flexbox for the hour columns
+.ec-main .hour-column {
+  flex: 0 0 100px; /* fixed width per hour */
+/* } * */
+/* .ec-container {
+  display: flex;
+  justify-content: flex-start !important; /* avoid centering */
+/* align-items: stretch;
+}
+.ec-container,
+.ec-main {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+} */
+/* If things are centering because of flex */
+/* .ec-main {
+  min-width: 100vw;
+  width: 84%;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: flex-start;
+} */
+/* .ec-day {
+  flex: 1 0 0; } */

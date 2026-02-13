@@ -685,6 +685,196 @@ function resetDynamicHeight() {
   });
 }
 
+// Call this after the calendar has rendered all days and hours
+function syncDayHeaderWithHours() {
+  console.log("syncDayHeaderWithHours called");
+  const MIN_LINE_WIDTH = 220;
+  // Select .ec-day elements in the header
+  const headerDays = document.querySelectorAll(".ec-header .ec-days .ec-day");
+  console.log("headerDays count:", headerDays.length);
+  if (!headerDays.length) {
+    return; // Silently fail if headers don't exist yet
+  }
+  // Get the first row of day cells in the body to measure widths
+  // FIX: Use :first-of-type instead of :first-child (because .ec-lines is first child)
+  const firstDaysRow = document.querySelector(".ec-body .ec-content .ec-days");
+  const bodyDays = firstDaysRow ? firstDaysRow.querySelectorAll(".ec-day") : [];
+  console.log("bodyDays count:", bodyDays.length);
+  if (!bodyDays.length || bodyDays.length !== headerDays.length) {
+    console.warn(
+      "Mismatch: headerDays=" +
+        headerDays.length +
+        ", bodyDays=" +
+        bodyDays.length,
+    );
+    return; // Mismatch in day count
+  }
+  // Get all ec-line elements in the body
+  const allLines = document.querySelectorAll(
+    ".ec-body .ec-content .ec-lines .ec-line",
+  );
+  console.log("Total lines found:", allLines.length);
+  // Sync each day header container with its corresponding body day cell
+  headerDays.forEach((headerDay, dayIndex) => {
+    const bodyDay = bodyDays[dayIndex];
+    if (!bodyDay) {
+      console.warn("No bodyDay for index:", dayIndex);
+      return;
+    }
+    // Get the actual rendered width of the body day cell
+    const dayWidth = bodyDay.getBoundingClientRect().width;
+    // Count the number of hours for this day (count .ec-time elements in header)
+    const hourTimes = headerDay.querySelectorAll(".ec-times .ec-time");
+    const numberOfHours = hourTimes.length;
+    console.log(`Day ${dayIndex}: width=${dayWidth}, hours=${numberOfHours}`);
+    if (dayWidth > 0 && numberOfHours > 0) {
+      // Calculate width per hour/line
+      // const widthPerHour = dayWidth / numberOfHours;
+      const rawWidthPerHour = dayWidth / numberOfHours;
+      const widthPerHour = Math.max(MIN_LINE_WIDTH, rawWidthPerHour);
+      const effectiveDayWidth = widthPerHour * numberOfHours;
+      console.log(`Day ${dayIndex}: widthPerHour=${widthPerHour}`);
+      // Apply the width to the ENTIRE header day container
+      headerDay.style.width = effectiveDayWidth + "px";
+      headerDay.style.flex = "0 0 " + effectiveDayWidth + "px";
+      headerDay.style.minWidth = effectiveDayWidth + "px";
+      // Also ensure the day-head inside matches
+      const dayHead = headerDay.querySelector(".ec-day-head");
+      if (dayHead) {
+        dayHead.style.width = "100%";
+        dayHead.style.flex = "1 1 auto";
+      }
+      // Update the width of ec-line elements for this day
+      if (allLines.length > 0) {
+        // Calculate the starting index for this day's lines
+        let linesBeforeThisDay = 0;
+        for (let i = 0; i < dayIndex; i++) {
+          const prevHeaderDay = headerDays[i];
+          const prevHourTimes =
+            prevHeaderDay.querySelectorAll(".ec-times .ec-time");
+          linesBeforeThisDay += prevHourTimes.length;
+        }
+        console.log(
+          `Day ${dayIndex}: Starting line index=${linesBeforeThisDay}, will update ${numberOfHours} lines`,
+        );
+        // Update each line for this day
+        for (let hourIndex = 0; hourIndex < numberOfHours; hourIndex++) {
+          const lineIndex = linesBeforeThisDay + hourIndex;
+          if (lineIndex < allLines.length) {
+            const line = allLines[lineIndex];
+            // Use setProperty with important to override CSS
+            line.style.setProperty("width", widthPerHour + "px", "important");
+            line.style.setProperty(
+              "flex",
+              "0 0 " + widthPerHour + "px",
+              "important",
+            );
+            line.style.setProperty(
+              "min-width",
+              widthPerHour + "px",
+              "important",
+            );
+            console.log(`Line ${lineIndex}: Set width to ${widthPerHour}px`);
+          } else {
+            console.warn(
+              `Line index ${lineIndex} out of bounds (total: ${allLines.length})`,
+            );
+          }
+        }
+      }
+      hourTimes.forEach((timeElement, hourIndex) => {
+        timeElement.style.setProperty(
+          "width",
+          widthPerHour + "px",
+          "important",
+        );
+        timeElement.style.setProperty(
+          "flex",
+          "0 0 " + widthPerHour + "px",
+          "important",
+        );
+        timeElement.style.setProperty(
+          "min-width",
+          widthPerHour + "px",
+          "important",
+        );
+        console.log(
+          `Time ${hourIndex} for Day ${dayIndex}: Set width to ${widthPerHour}px`,
+        );
+      });
+    }
+  });
+  console.log("syncDayHeaderWithHours completed");
+  syncEventWidths();
+}
+// Recalculate event widths based on dynamic hour widths
+function syncEventWidths() {
+  // Get all events
+  const allEvents = document.querySelectorAll(".ec-event");
+  if (!allEvents.length) return;
+  // Get all day headers to calculate width per hour for each day
+  const headerDays = document.querySelectorAll(".ec-header .ec-days .ec-day");
+  const firstDaysRow = document.querySelector(".ec-body .ec-content .ec-days");
+  const bodyDays = firstDaysRow ? firstDaysRow.querySelectorAll(".ec-day") : [];
+  if (headerDays.length !== bodyDays.length) return;
+  // Create a map of day index to width per hour
+  const dayWidthPerHour = {};
+  headerDays.forEach((headerDay, dayIndex) => {
+    const bodyDay = bodyDays[dayIndex];
+    if (!bodyDay) return;
+    const dayWidth = bodyDay.getBoundingClientRect().width;
+    const hourTimes = headerDay.querySelectorAll(".ec-times .ec-time");
+    const numberOfHours = hourTimes.length;
+    if (dayWidth > 0 && numberOfHours > 0) {
+      dayWidthPerHour[dayIndex] = dayWidth / numberOfHours;
+    }
+  });
+  // Update each event
+  allEvents.forEach((event) => {
+    // Find which day this event belongs to
+    const eventContainer = event.closest(".ec-day");
+    if (!eventContainer) return;
+    // Find the day index by checking class names (ec-fri, ec-sat, etc.)
+    const dayClasses = [
+      "ec-sun",
+      "ec-mon",
+      "ec-tue",
+      "ec-wed",
+      "ec-thu",
+      "ec-fri",
+      "ec-sat",
+    ];
+    let dayIndex = -1;
+    for (let i = 0; i < dayClasses.length; i++) {
+      if (eventContainer.classList.contains(dayClasses[i])) {
+        // Find this day's index in the header
+        headerDays.forEach((headerDay, idx) => {
+          if (headerDay.classList.contains(dayClasses[i])) {
+            dayIndex = idx;
+          }
+        });
+        break;
+      }
+    }
+    if (dayIndex === -1 || !dayWidthPerHour[dayIndex]) return;
+    const widthPerHour = dayWidthPerHour[dayIndex];
+    // Get event's current style to extract left position and calculate hours
+    const currentLeft = parseFloat(event.style.left) || 0;
+    const currentWidth = parseFloat(event.style.width) || 0;
+    // Calculate how many hours this event spans
+    // The calendar library uses slotWidth (220px originally) to calculate positions
+    // We need to convert the current width to hours based on the new widthPerHour
+    const hoursSpanned = Math.round(currentWidth / widthPerHour) || 1;
+    const startHour = Math.round(currentLeft / widthPerHour);
+    // Recalculate width and left position
+    const newWidth = hoursSpanned * widthPerHour;
+    const newLeft = startHour * widthPerHour;
+    // Apply new dimensions
+    event.style.setProperty("width", newWidth + "px", "important");
+    event.style.setProperty("left", newLeft + "px", "important");
+  });
+}
+
 function addPurpleColor() {
   const target = document.querySelector(".ec-body .ec-content");
   console.log("Adding purple color class to ec-content");
@@ -858,6 +1048,13 @@ function refreshCalendarUI() {
   initializeAllTooltips();
   syncDynamicHeight();
   applyObserver();
+  setTimeout(() => {
+    try {
+      syncDayHeaderWithHours();
+    } catch (e) {
+      console.warn("syncDayHeaderWithHours failed:", e);
+    }
+  }, 100);
 }
 
 function openAgreementBookingSetupRecord(id) {
