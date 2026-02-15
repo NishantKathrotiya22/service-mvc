@@ -51,6 +51,9 @@ let timeOffEvents = [];
 //Object that contains all the work hours pattern that has (BYDAY in pattern)
 let workHoursPattern = [];
 
+// Authoritative visible range set by the view when date picker applies (avoids calendar API quirks)
+let calendarVisibleRange = null; // { start: Date, numDays: number } or null
+
 const refLink = "..//WebResources/";
 
 const leaveTypeClassMap = {
@@ -330,7 +333,46 @@ function mapServiceType(data) {
 }
 
 // Business Logic Functions
+/** Format a Date as YYYY-MM-DD using local date (no UTC shift). */
+function toLocalDateString(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Called by the view when the date picker or today button sets the calendar range.
+ * This is the authoritative range so we don't rely on calendar currentStart/currentEnd.
+ */
+function setCalendarVisibleRange(startDate, numDays) {
+  if (startDate == null || numDays == null || numDays < 1) {
+    calendarVisibleRange = null;
+    return;
+  }
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  calendarVisibleRange = { start, numDays: Math.max(1, Math.floor(numDays)) };
+}
+
+/**
+ * Returns the visible calendar range as inclusive start/end (for API and pattern generation).
+ * Uses the range set by the view (setCalendarVisibleRange) when available; otherwise
+ * reads from the calendar and uses local date strings so timezone doesn't drop the last day.
+ */
 function getAdjustedDateRangeFromCalendar() {
+  // Prefer the range the view set when applying the date picker (authoritative)
+  if (calendarVisibleRange) {
+    const { start, numDays } = calendarVisibleRange;
+    const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + numDays - 1);
+    return {
+      startDate: toLocalDateString(startDate) + "T00:00:00Z",
+      endDate: toLocalDateString(endDate) + "T23:59:59Z",
+    };
+  }
+
   if (!window.ecCalendar) {
     console.warn("Calendar not found.");
     return null;
@@ -340,21 +382,22 @@ function getAdjustedDateRangeFromCalendar() {
   const viewStart = new Date(calendarView.currentStart);
   const viewEnd = new Date(calendarView.currentEnd);
 
+  const startDate = new Date(
+    viewStart.getFullYear(),
+    viewStart.getMonth(),
+    viewStart.getDate()
+  );
+
   const msPerDay = 24 * 60 * 60 * 1000;
-  const dayDiff = Math.round((viewEnd - viewStart) / msPerDay);
+  let numDays = Math.ceil((viewEnd - viewStart) / msPerDay);
+  if (numDays < 1) numDays = 1;
 
-  let startDate = new Date(viewStart);
-  let endDate;
-
-  if (dayDiff >= 10) {
-    endDate = new Date(viewEnd);
-  } else {
-    endDate = new Date(startDate.getTime() + 9 * msPerDay);
-  }
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + numDays - 1);
 
   return {
-    startDate: startDate.toISOString().split("T")[0] + "T00:00:00Z",
-    endDate: endDate.toISOString().split("T")[0] + "T23:59:59Z",
+    startDate: toLocalDateString(startDate) + "T00:00:00Z",
+    endDate: toLocalDateString(endDate) + "T23:59:59Z",
   };
 }
 
@@ -1303,9 +1346,11 @@ function generateSplitEvents(data, inputStart, inputEnd) {
 
   const results = [];
 
-  // Parse input dates without timezone conversion
-  const startDate = new Date(inputStart.split("T")[0] + "T00:00:00");
-  const endDate = new Date(inputEnd.split("T")[0] + "T23:59:59");
+  // Parse to calendar-day boundaries (date part only) so the loop includes first and last day
+  const startStr = inputStart.split("T")[0];
+  const endStr = inputEnd.split("T")[0];
+  const startDate = new Date(startStr + "T00:00:00");
+  const endDate = new Date(endStr + "T23:59:59.999");
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
     const currentDay = d.getDay();
@@ -1498,4 +1543,5 @@ window.Model = {
   getEventClassName,
   resetState,
   buildResourcePatterns,
+  setCalendarVisibleRange,
 };

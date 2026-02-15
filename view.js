@@ -1054,6 +1054,15 @@ function refreshCalendarUI() {
     } catch (e) {
       console.warn("syncDayHeaderWithHours failed:", e);
     }
+    // Re-apply events and resources once after layout is stable so they match slot widths (avoids flicker from re-rendering at start)
+    if (window.ecCalendar && window.Model) {
+      const events = window.Model.getEvents();
+      const resources = window.Model.getResources();
+      const opts = {};
+      if (events) opts.events = events;
+      if (resources && resources.length) opts.resources = resources;
+      if (Object.keys(opts).length) window.ecCalendar.setOptions(opts);
+    }
   }, 100);
 }
 
@@ -1168,6 +1177,9 @@ function initDateRangePicker() {
             window.ecCalendar.setOption("date", start.toDate());
             window.ecCalendar.setOption("duration", { days: calendarDuration });
 
+            if (window.Model && window.Model.setCalendarVisibleRange) {
+              window.Model.setCalendarVisibleRange(start.toDate(), calendarDuration);
+            }
             // if (window.Controller) window.Controller.handleDateChange();
           }
         });
@@ -1222,6 +1234,9 @@ function initDateRangePicker() {
         window.ecCalendar.setOption("date", new Date());
         // Show exactly 1 day when clicking Today (no forced 8-day range)
         window.ecCalendar.setOption("duration", { days: 1 });
+        if (window.Model && window.Model.setCalendarVisibleRange) {
+          window.Model.setCalendarVisibleRange(new Date(), 1);
+        }
       }
 
       if (

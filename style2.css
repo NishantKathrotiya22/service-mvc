@@ -352,8 +352,12 @@ select:focus > option:hover {
 }
 
 .ec-container {
-  min-width: 100% !important;
-  display: flex;
+  /* min-width: 100% !important;
+  display: flex; */
+
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start !important;
 }
 
 /* .ec-body  */
@@ -397,14 +401,26 @@ select:focus > option:hover {
 .ec-body {
   flex: 1 1 auto;
   overflow: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ec-main {
-  min-width: 100%;
+  /* min-width: 100%;
   display: inline-block;
+  border-right: 2px dashed var(--border-color); */
+  /* min-width: 85% !important; */
+  width: 100% !important;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   border-right: 2px dashed var(--border-color);
 }
 
+.ec-header .ec-day-head {
+  flex: 0 0 auto;
+  border-bottom: border-box;
+}
 /***** Fitting Serach Container at .ec-sidebar-title  *****/
 
 .ec-header > .ec-days > .ec-day {
