@@ -397,11 +397,22 @@ select:focus > option:hover {
 .ec-body {
   flex: 1 1 auto;
   overflow: auto;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.ec-body .ec-content {
+  width: auto !important;
+  min-width: 100%;
 }
 
 .ec-main {
-  min-width: 100%;
-  display: inline-block;
+  flex: 1 1 0%;
+  min-width: 0;
+  display: flex !important;
+  flex-direction: column;
+  box-sizing: border-box;
   border-right: 2px dashed var(--border-color);
 }
 
@@ -536,13 +547,24 @@ body.resources-loading .custom-dropdown {
   box-sizing: content-box !important;
 }
 
+.ec-header {
+  width: auto !important;
+  min-width: 100%;
+}
+
 /* ========================================================
    Timeline Column Width (Time Labels & Lines)
    ======================================================== */
 .ec-timeline .ec-time,
 .ec-timeline .ec-line {
-  width: 220px !important;
-  /* width: 249px !important; */
+  width: auto !important;
+  flex: 1 1 0%;
+  min-width: 220px;
+}
+
+.ec-times,
+.ec-lines {
+  display: flex !important;
 }
 
 .ec-time-grid .ec-time,

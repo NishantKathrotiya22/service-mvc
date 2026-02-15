@@ -854,10 +854,28 @@ function applyObserver() {
   updatePosition();
 }
 
+function syncSlotWidth() {
+  if (!window.ecCalendar) return;
+  // Measure the actual width of a slot label or grid slot
+  const timeEl = document.querySelector(".ec-time");
+  if (timeEl) {
+    const actualWidth = timeEl.getBoundingClientRect().width;
+    const currentSlotWidth = window.ecCalendar.getOption("slotWidth");
+
+    // Only update if change is significant (> 0.5px) to prevent unnecessary re-renders
+    if (Math.abs(actualWidth - parseFloat(currentSlotWidth)) > 0.5) {
+      window.ecCalendar.setOption("slotWidth", actualWidth.toString());
+    }
+  }
+}
+
 function refreshCalendarUI() {
   initializeAllTooltips();
   syncDynamicHeight();
   applyObserver();
+  // Ensure slots are synced with actual layout width
+  syncSlotWidth();
+
   setTimeout(() => {
     // Re-apply events and resources once after layout is stable so they match slot widths (avoids flicker from re-rendering at start)
     if (window.ecCalendar && window.Model) {
@@ -870,6 +888,13 @@ function refreshCalendarUI() {
     }
   }, 100);
 }
+
+// Ensure syncing on window resize
+window.addEventListener("resize", () => {
+  if (window.ecCalendar) {
+    syncSlotWidth();
+  }
+});
 
 function openAgreementBookingSetupRecord(id) {
   var pageInput = {
