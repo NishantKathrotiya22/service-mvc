@@ -1346,11 +1346,11 @@ function generateSplitEvents(data, inputStart, inputEnd) {
 
   const results = [];
 
-  // Parse to calendar-day boundaries (date part only) so the loop includes first and last day
-  const startStr = inputStart.split("T")[0];
-  const endStr = inputEnd.split("T")[0];
-  const startDate = new Date(startStr + "T00:00:00");
-  const endDate = new Date(endStr + "T23:59:59.999");
+// Parse to calendar-day boundaries (date part only) so the loop includes first and last day
+const startStr = inputStart.split("T")[0];
+const endStr = inputEnd.split("T")[0];
+const startDate = new Date(startStr + "T00:00:00");
+const endDate = new Date(endStr + "T23:59:59.999");
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
     const currentDay = d.getDay();
