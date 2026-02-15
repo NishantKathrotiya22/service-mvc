@@ -648,11 +648,10 @@ function syncDynamicHeight() {
     ecDaysLast.style.setProperty("--bor-top", `${finalTop}px`);
     ecResourceLast.style.setProperty("--bor-top", `${finalTop}px`);
 
-    ecDays.forEach((ecDay) => {
-      ecDay.style.height = `${finalTop}px`;
-    });
-  } else {
-    console.warn("syncDynamicHeight: Required elements not found.");
+    //Causing issue in First pattern with event height
+    // ecDays.forEach((ecDay) => {
+    //   ecDay.style.height = `${finalTop}px`;
+    // });
   }
 }
 
@@ -1008,7 +1007,10 @@ function initDateRangePicker() {
             window.ecCalendar.setOption("duration", { days: calendarDuration });
 
             if (window.Model && window.Model.setCalendarVisibleRange) {
-              window.Model.setCalendarVisibleRange(start.toDate(), calendarDuration);
+              window.Model.setCalendarVisibleRange(
+                start.toDate(),
+                calendarDuration,
+              );
             }
             // if (window.Controller) window.Controller.handleDateChange();
           }
@@ -1249,7 +1251,7 @@ function createCalendar() {
     view: "resourceTimelineDay",
     initialView: "resourceTimelineDay",
     slotWidth: "220",
-    slotHeight: "80",
+    slotHeight: "90",
     duration: { days: 1 },
     headerToolbar: false,
     editable: false,
