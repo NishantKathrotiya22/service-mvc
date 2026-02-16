@@ -229,7 +229,12 @@ function getHolidays() {
  * with all entities so mapBookingEvents can consume it unchanged.
  */
 async function getAgreementBookingDatesBetween() {
-  const { startDate, endDate } = getAdjustedDateRangeFromCalendar();
+  const range = getAgreementBookingDateRangeUTC();
+  if (!range) {
+    console.warn("Calendar range not available for agreement booking query.");
+    return { entities: [] };
+  }
+  const { startDate, endDate } = range;
 
   const query = [
     "?$select=msdyn_agreementbookingdateid,_msdyn_agreement_value,msdyn_bookingdate,msdyn_name,_msdyn_resource_value,msdyn_status,statecode",
@@ -353,6 +358,41 @@ function setCalendarVisibleRange(startDate, numDays) {
   const start = new Date(startDate);
   start.setHours(0, 0, 0, 0);
   calendarVisibleRange = { start, numDays: Math.max(1, Math.floor(numDays)) };
+}
+
+/**
+ * Returns the visible calendar range in UTC for DB queries (e.g. agreement booking).
+ * DB stores in UTC; we show the user local time. So we convert the user's local date range
+ * (start-of-first-day to end-of-last-day in browser timezone) to UTC so we fetch exactly
+ * the events that will display in that range.
+ */
+function getAgreementBookingDateRangeUTC() {
+  let startLocal; // midnight local on first day
+  let endLocal;   // 23:59:59.999 local on last day
+  if (calendarVisibleRange) {
+    const { start, numDays } = calendarVisibleRange;
+    startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0);
+    endLocal = new Date(startLocal);
+    endLocal.setDate(endLocal.getDate() + numDays - 1);
+    endLocal.setHours(23, 59, 59, 999);
+  } else if (window.ecCalendar) {
+    const calendarView = window.ecCalendar.view || window.ecCalendar.getView();
+    const viewStart = new Date(calendarView.currentStart);
+    const viewEnd = new Date(calendarView.currentEnd);
+    startLocal = new Date(viewStart.getFullYear(), viewStart.getMonth(), viewStart.getDate(), 0, 0, 0, 0);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    let numDays = Math.ceil((viewEnd - viewStart) / msPerDay);
+    if (numDays < 1) numDays = 1;
+    endLocal = new Date(startLocal);
+    endLocal.setDate(endLocal.getDate() + numDays - 1);
+    endLocal.setHours(23, 59, 59, 999);
+  } else {
+    return null;
+  }
+  return {
+    startDate: startLocal.toISOString(),
+    endDate: endLocal.toISOString(),
+  };
 }
 
 /**
